@@ -1,6 +1,7 @@
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { DB } from '../db/types';
 import { sha256 } from '../security/crypto';
+import { publish, topicOfEntity } from '../realtime/outbox';
 
 /**
  * Append-only audit log with a hash chain: each entry stores the previous hash, so any edit or
@@ -97,6 +98,11 @@ async function append(trx: Transaction<DB>, actor: AuditActor, entry: AuditEntry
       hash: entryHash(prevHash, fields),
     })
     .execute();
+  // Every audited change also tells the open screens to refresh (same transaction: only if it commits).
+  const t = topicOfEntity(entry.entity);
+  if (t && actor.institutionId && entry.action !== 'download' && entry.action !== 'view_identified' && entry.action !== 'access_denied') {
+    await publish(trx, { institutionId: actor.institutionId, ...t });
+  }
 }
 
 /** Writes inside the caller's transaction (same commit as the change) or in its own. */

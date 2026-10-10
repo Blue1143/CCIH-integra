@@ -156,3 +156,8 @@ a { color: var(--primary); }
 .bell-link { position: relative; gap: 4px; }
 .inbox-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
 .alert-item.alert-blocking { border-color: var(--crit); border-left-width: 4px; }
+.rt-status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-label-size); color: var(--ink-muted); white-space: nowrap; }
+.rt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-muted); flex: none; }
+.rt-ativo .rt-dot { background: var(--ok); }
+.rt-reconectando .rt-dot { background: var(--warn); }
+.rt-periodico .rt-dot { background: var(--warn); }

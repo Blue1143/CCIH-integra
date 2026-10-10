@@ -417,7 +417,8 @@ Cada etapa termina com lint, typecheck, testes, build, commit e relatório (func
 | C5 | Concluída | Migração 0006; testes de API (não conformidade + notificação só para quem registrou, leitura da notificação, notificação não pode ser excluída, conferência manual sem justificativa) e de interface (sino com contador, marcar como lida, continuar na próxima etapa) |
 | D1 | Concluída | Migração 0007; testes de domínio (categorias, bloqueio, ações permitidas, gravidade crítica), de API (ciclo completo com histórico, filtros, visualizar não muda a situação, bloqueante não encerra à mão, exceção só com permissão e sem recriação, histórico imutável) e de interface |
 | D2 | Concluída | Testes de domínio (nenhum alerta sem valor institucional; cada prazo vale só para a sua etapa; eventos) e de API contra PostgreSQL (prazo não configurado não alerta; prazo configurado alerta e o alerta se encerra sozinho com a leitura seguinte; carga aguardando decisão; leituras recusadas repetidas; estação incompatível; tentativa de saída sem liberação) |
-| G1 em diante | Pendentes | — |
+| G1 | Concluída | Migração 0008; testes de API com servidor real (só após commit; permissão; escopo de setor; destinatário pessoal; reenvio por Last-Event-ID; reset quando a lacuna é antiga; encerramento ao fim da sessão; modo periódico), de interface (invalidação por tópico sem duplicar; queda → periódico) e E2E com duas sessões |
+| F1 em diante | Pendentes | — |
 
 **O que C4 entrega:** tela "Estação de leitura" (escolha da estação, etapa, campo que distingue leitor × digitação pelo intervalo entre teclas, câmera via `BarcodeDetector` quando o navegador oferece, conferência manual no sistema, resultado da leitura com o motivo, exceção autorizada, últimas leituras); "Processos" (lista e trilha de cada rodada, com leituras recusadas); "Estações e fluxo" (regras institucionais, cadastro de estações, pareamento de computadores); "Materiais" (emissão de códigos de ativos); carga "em montagem" com início do ciclo; links da rastreabilidade para a trilha do processo.
 
@@ -450,3 +451,11 @@ Cada etapa termina com lint, typecheck, testes, build, commit e relatório (func
 - Os alertas de tempo se encerram sozinhos quando a leitura seguinte (ou a decisão) acontece.
 
 **Aprovação pendente:** os valores de cada prazo e do limite de leituras recusadas (decisão institucional; o sistema não sugere números).
+
+**O que G1 entrega (tempo real):**
+- `event_outbox` gravado na mesma transação da mudança (pela auditoria, que já acompanha toda alteração, e explicitamente na leitura da CME, na geração de alertas e nas notificações pessoais); gatilho `pg_notify` — só é anunciado o que foi confirmado.
+- `GET /api/events` (Server-Sent Events): cada instância da API escuta o banco e envia a cada conexão só o que ela pode ver (instituição, permissão, setor do escopo, destinatário pessoal). O evento leva apenas id e tópico; a tela relê os dados pelas rotas autorizadas. Reconexão com `Last-Event-ID` reenvia o que faltou dentro da retenção; lacuna maior envia "reset" (a tela atualiza tudo). A conexão é encerrada quando a sessão termina (saída, revogação, inatividade ou tempo máximo); permissões alteradas valem na próxima conexão.
+- Cliente: invalida só as consultas do tópico, ignora ids repetidos, mostra "Tempo real" / "Reconectando…" / "Atualização periódica" no cabeçalho e, sem conexão, atualiza periodicamente.
+- Configuração: `REALTIME_MODE=sse|polling`, `REALTIME_POLL_SECONDS`, `REALTIME_RETENTION_HOURS`, `REALTIME_MAX_CONNECTIONS` (ver `.env.example`). Administradores veem o estado da escuta em `GET /api/realtime`.
+
+**Limitações e dependências:** o proxy reverso precisa permitir SSE sem buffer e conexões longas (o servidor envia `X-Accel-Buffering: no` e um sinal a cada 25 s); um evento confirmado fora de ordem durante uma reconexão pode não ser reenviado (a próxima mudança do mesmo tópico ou o modo periódico corrigem); o alerta técnico para falhas repetidas de entrega fica para G2 (hoje os contadores aparecem em `GET /api/realtime`).

@@ -337,6 +337,13 @@ export interface ScanInput {
   destinationSectorId: string | null; originSectorId: string | null; loadId: string | null; packaging: PackagingType | null; justification: string | null; override: boolean;
 }
 
+export interface RealtimeConfig { mode: 'sse' | 'polling'; pollSeconds: number }
+export interface RealtimePort {
+  config(): Promise<RealtimeConfig>;
+  /** Same-origin Server-Sent Events stream (the session cookie authorizes it). */
+  eventsUrl: string;
+}
+
 export interface InboxPort {
   notifications(q: { situacao: 'nao_lidas' | 'todas' }): Promise<{ rows: UserNotificationDto[]; unread: number }>;
   markRead(id: string): Promise<void>;
@@ -354,6 +361,8 @@ export interface CcihDataSource {
   readonly cme?: CmePort;
   /** Personal notifications of the signed-in user. */
   readonly inbox?: InboxPort;
+  /** Live updates of the screens (only with the backend). */
+  readonly realtime?: RealtimePort;
   getInstitution(): Promise<WithProvenance<InstitutionData>>;
   getFacts(query: FactsQuery): Promise<WithProvenance<{ rows: FactRow[] }>>;
 }

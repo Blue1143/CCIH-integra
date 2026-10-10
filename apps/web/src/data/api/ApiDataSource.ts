@@ -1,5 +1,5 @@
 import type { FactRow, InstitutionData, WithProvenance } from '@ccih/domain';
-import type { AdminPort, AuthPort, CcihDataSource, ClinicalPort, CmePort, FactsQuery, InboxPort, OperationsPort, OrgAdminPort, SessionInfo } from '../port';
+import type { AdminPort, AuthPort, CcihDataSource, ClinicalPort, CmePort, FactsQuery, InboxPort, RealtimePort, OperationsPort, OrgAdminPort, SessionInfo } from '../port';
 import { createHttpClient, type HttpClient } from './http';
 
 /** Backend source: every authorization decision is taken by the API; the UI only reflects it. */
@@ -12,6 +12,7 @@ export class ApiDataSource implements CcihDataSource {
   readonly operations: OperationsPort;
   readonly cme: CmePort;
   readonly inbox: InboxPort;
+  readonly realtime: RealtimePort;
   private readonly http: HttpClient;
 
   constructor(base = '/api', onUnauthorized: () => void = () => {}) {
@@ -126,6 +127,7 @@ export class ApiDataSource implements CcihDataSource {
       process: (p) => http.get(`/cme/processes/${id(p)}`),
       scanEvents: (q) => http.get('/cme/scan-events', q),
     };
+    this.realtime = { config: () => http.get('/realtime'), eventsUrl: `${base}/events` };
     this.inbox = {
       notifications: (q) => http.get(`/me/notifications?situacao=${q.situacao}`),
       markRead: (n) => ok(http.send('POST', `/me/notifications/${id(n)}/read`)),

@@ -25,6 +25,14 @@ const schema = z.object({
   UPLOAD_DIR: z.string().min(1).default('var/uploads'),
   /** Maximum size of one uploaded file, in MB. */
   UPLOAD_MAX_MB: z.coerce.number().int().min(1).max(20).default(5),
+  /** sse: screens update as changes are committed; polling: periodic refresh only (infrastructure without long connections). */
+  REALTIME_MODE: z.enum(['sse', 'polling']).default('sse'),
+  /** Refresh interval used in polling mode and as fallback while the real-time connection is down. */
+  REALTIME_POLL_SECONDS: z.coerce.number().int().min(15).max(600).default(60),
+  /** How long events stay replayable for reconnecting screens. */
+  REALTIME_RETENTION_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+  /** Open real-time connections accepted by one API instance. */
+  REALTIME_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(10000).default(500),
   COOKIE_SECURE: z
     .enum(['true', 'false'])
     .default('true')

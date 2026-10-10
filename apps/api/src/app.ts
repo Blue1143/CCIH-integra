@@ -23,14 +23,19 @@ import { attachmentRoutes } from './routes/attachments';
 import { cmeRoutes } from './routes/cme';
 import { cmeFlowRoutes } from './routes/cme-flow';
 import { notificationRoutes } from './routes/notifications';
+import { realtimeRoutes } from './routes/realtime';
+import { EventHub } from './realtime/hub';
 
 export interface AppOptions {
   db: Kysely<DB>;
   env: Env;
   logger?: boolean;
+  /** Keep-alive interval of the real-time stream (tests shorten it). */
+  realtimeHeartbeatMs?: number;
 }
 
-export async function buildApp({ db, env, logger = true }: AppOptions): Promise<FastifyInstance> {
+export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
+  const { db, env, logger = true } = opts;
   const app = Fastify({
     trustProxy: env.TRUST_PROXY,
     bodyLimit: 256 * 1024,
@@ -50,6 +55,9 @@ export async function buildApp({ db, env, logger = true }: AppOptions): Promise<
     hsts: env.COOKIE_SECURE ? { maxAge: 31_536_000, includeSubDomains: true } : false,
   });
   await app.register(cookie);
+  const hub = new EventHub(env.DATABASE_URL, db, app.log, env.REALTIME_RETENTION_HOURS);
+  // Before the server stops accepting: end the open streams, otherwise closing would wait for them.
+  app.addHook('preClose', async () => hub.stop());
   // Counted per signed-in session (runs after the session is loaded), so the stations of a CME or
   // a whole hospital behind one NAT address do not share a single budget; anonymous calls count per IP.
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute', hook: 'preHandler', keyGenerator: (req) => (req.auth ? `s:${req.auth.sessionId}` : `ip:${req.ip}`) });
@@ -95,6 +103,7 @@ export async function buildApp({ db, env, logger = true }: AppOptions): Promise<
       await api.register(trainingSupplyRoutes, { db });
       await api.register(alertRoutes, { db });
       await api.register(notificationRoutes, { db });
+      await api.register(realtimeRoutes, { db, env, hub, ...(opts.realtimeHeartbeatMs ? { heartbeatMs: opts.realtimeHeartbeatMs } : {}) });
       await api.register(attachmentRoutes, { db, env });
       await api.register(cmeRoutes, { db });
       await api.register(cmeFlowRoutes, { db, env });

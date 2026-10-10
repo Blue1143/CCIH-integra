@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ROLE_LABEL, type RoleCode } from '@ccih/domain';
 import { EnvironmentBanner, Icon } from '@ccih/ui';
 import { useDataSource, useInstitution } from '../data/source';
+import { REALTIME_LABEL, useRealtimeSync } from '../data/realtime';
 import { useSession } from '../features/auth/session';
 import { IdleWarning } from '../features/auth/IdleWarning';
 import { useAlertCount } from '../features/operations/AlertsPage';
@@ -28,6 +29,7 @@ export function AppShell() {
   const urgent = (alertCount.data?.byPriority.critica ?? 0) + (alertCount.data?.byPriority.alta ?? 0);
   const unread = useUnreadNotifications().data?.unread ?? 0;
   const forced = !!session.info?.mustChangePassword;
+  const realtime = useRealtimeSync(session.status === 'authenticated' && !forced);
   const groups = (forced ? [] : NAVIGATION).map((g) => ({ ...g, items: g.items.filter((i) => session.can(...i.permissions)) })).filter((g) => g.items.length);
 
   return (
@@ -48,6 +50,13 @@ export function AppShell() {
             <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={16} />
             <span className="hide-sm">{THEME_LABEL[theme]}</span>
           </button>
+          {realtime !== 'desligado' ? (
+            <span className={`rt-status rt-${realtime}`} role="status" title={REALTIME_LABEL[realtime].title}>
+              <span className="rt-dot" aria-hidden="true" />
+              <span className="hide-sm">{REALTIME_LABEL[realtime].text}</span>
+              <span className="ig-sr-only">{REALTIME_LABEL[realtime].title}</span>
+            </span>
+          ) : null}
           {session.info ? (
             <>
               {source.inbox && !forced ? (

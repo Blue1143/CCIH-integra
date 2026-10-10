@@ -4,6 +4,7 @@ import {
   type AlertCandidate, type AlertInput, type AlertKind,
 } from '@ccih/domain';
 import type { DB } from '../db/types';
+import { publish } from '../realtime/outbox';
 import { loadRequiredTrainings, loadSupplies } from '../routes/training-supplies';
 import { currentOnly, evaluateLoads, loadPolicy } from '../repositories/cme';
 
@@ -252,6 +253,7 @@ async function generate(db: Kysely<DB>, institutionId: string, now: Date): Promi
       await trx.updateTable('alert').set({ status: 'encerrado', closed_at: now, closed_by_name: 'Sistema', resolution: note, closed_reason: 'automatico', row_version: (eb) => eb('row_version', '+', 1) }).where('id', 'in', gone).execute();
       await trx.insertInto('alert_action').values(gone.map((alertId) => ({ alert_id: alertId, action: 'encerrado_automatico' as const, user_id: null, user_name: 'Sistema', note, at: now }))).execute();
     }
+    if (created || gone.length) await publish(trx, { institutionId, topic: 'alertas', permission: 'alerts:view' });
     return { created, resolved: gone.length };
   });
 }

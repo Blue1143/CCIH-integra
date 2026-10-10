@@ -26,7 +26,7 @@ export interface TestContext {
 }
 
 /** Fresh schema + synthetic seed in the dedicated test database. */
-export async function setupTestApp(overrides: Record<string, string> = {}): Promise<TestContext> {
+export async function setupTestApp(overrides: Record<string, string> = {}, appOptions: { realtimeHeartbeatMs?: number } = {}): Promise<TestContext> {
   const appUrl = process.env.TEST_DATABASE_URL;
   const ownerUrl = process.env.TEST_DATABASE_OWNER_URL;
   if (!appUrl || !ownerUrl) throw new Error('Defina TEST_DATABASE_URL e TEST_DATABASE_OWNER_URL (veja apps/api/.env.example).');
@@ -37,7 +37,7 @@ export async function setupTestApp(overrides: Record<string, string> = {}): Prom
   const db = createDb(appUrl, 4);
   const { institutionId } = await seedDemo(db, { password: TEST_PASSWORD });
   const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: appUrl, APP_ORIGIN: ORIGIN, COOKIE_SECURE: 'false', LOGIN_MAX_ATTEMPTS: '3', SESSION_IDLE_MINUTES: '30', LOGIN_RATE_LIMIT_PER_MINUTE: '200', ...overrides });
-  const app = await buildApp({ db, env, logger: false });
+  const app = await buildApp({ db, env, logger: false, ...appOptions });
   return { app, db, owner, env, institutionId };
 }
 

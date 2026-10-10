@@ -6,6 +6,7 @@ import {
 } from '@ccih/domain';
 import type { CmeProcessTable, DB } from '../db/types';
 import { audit, type AuditActor } from '../audit/audit';
+import { publish } from '../realtime/outbox';
 import type { AuthContext } from '../http/auth';
 import { HttpError, notFound } from '../http/errors';
 import { sha256 } from '../security/crypto';
@@ -95,6 +96,7 @@ export async function scan(db: Kysely<DB>, auth: AuthContext, actor: AuditActor,
           details: details ? JSON.stringify(details) : null,
         }).returning('id').executeTakeFirstOrThrow();
         await trx.updateTable('scan_station').set({ last_seen_at: new Date() }).where('id', '=', station.id).execute();
+        await publish(trx, { institutionId: auth.institutionId, topic: 'cme', permission: 'cme:view', sectorId: station.sector_id });
         if (deviceId) await trx.updateTable('station_device').set({ last_seen_at: new Date() }).where('id', '=', deviceId).execute();
         if (result === 'excecao_autorizada') await audit(trx, actor, { action: 'status_change', entity: 'cme_process', entityId: processId, context: { exception: true, step: input.step, justification: input.justification, eventId: row.id } });
         return { eventId: row.id, result, message, replay: false, process: processId ? (await processSummaries(trx, [processId]))[0] ?? null : null, load: selectedLoad };
@@ -289,6 +291,7 @@ export async function receiveLoose(db: Kysely<DB>, auth: AuthContext, input: { s
       justification: null, previous_event_id: null, data_origin: origin,
     }).returning('id').executeTakeFirstOrThrow();
     await trx.updateTable('scan_station').set({ last_seen_at: new Date() }).where('id', '=', station.id).execute();
+    await publish(trx, { institutionId: auth.institutionId, topic: 'cme', permission: 'cme:view', sectorId: station.sector_id });
     return { eventId: ev.id, result: 'aceita', message, replay: false, process: (await processSummaries(trx, [process.id]))[0] ?? null, load: null };
   });
 }

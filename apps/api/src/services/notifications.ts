@@ -1,6 +1,7 @@
 import type { Kysely, Transaction } from 'kysely';
 import type { DB } from '../db/types';
 import type { AuthContext } from '../http/auth';
+import { publish } from '../realtime/outbox';
 
 type Trx = Transaction<DB> | Kysely<DB>;
 
@@ -9,6 +10,7 @@ export async function notifyUser(trx: Trx, n: { institutionId: string; userId: s
   await trx.insertInto('user_notification').values({
     institution_id: n.institutionId, user_id: n.userId, kind: n.kind, title: n.title, detail: n.detail, entity: n.entity, entity_id: n.entityId, link: n.link, data_origin: n.origin, read_at: null,
   }).onConflict((oc) => oc.columns(['user_id', 'entity', 'entity_id', 'kind']).doNothing()).execute();
+  await publish(trx, { institutionId: n.institutionId, topic: 'notificacoes', permission: null, userId: n.userId });
 }
 
 /**

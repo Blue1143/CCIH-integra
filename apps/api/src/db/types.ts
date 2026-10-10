@@ -433,6 +433,11 @@ export interface AlertTable {
   resolved_at: NullableTimestamp; resolved_by: string | null; resolved_name: string | null; resolved_note: string | null;
   closed_reason: 'manual' | 'automatico' | 'excecao' | null;
 }
+export type RealtimeTopic = 'clinico' | 'cme' | 'qualidade' | 'alertas' | 'notificacoes' | 'config';
+export interface EventOutboxTable {
+  /** bigserial: pg returns a string. */
+  id: Generated<string>; institution_id: string; topic: RealtimeTopic; permission: string | null; sector_id: string | null; user_id: string | null; created_at: CreatedAt;
+}
 export interface AlertActionTable {
   id: Generated<string>; alert_id: string;
   action: 'criado' | 'visualizado' | 'reconhecido' | 'assumido' | 'comentado' | 'resolvido' | 'encerrado' | 'encerrado_automatico' | 'excecao';
@@ -608,6 +613,7 @@ export interface DB {
   action_plan: ActionPlanTable;
   alert: AlertTable;
   alert_action: AlertActionTable;
+  event_outbox: EventOutboxTable;
   training: TrainingTable;
   training_session: TrainingSessionTable;
   training_attendance: TrainingAttendanceTable;
