@@ -51,7 +51,7 @@ function SupplyDetail({ supply, onEdit }: { supply: SupplyDto; onEdit?: () => vo
     <>
       <Card title={supply.name} subtitle={`${SUPPLY_CATEGORY_LABEL[supply.category]} · unidade: ${supply.unit} · cobertura mínima: ${supply.minCoverageDays != null ? `${supply.minCoverageDays} dias (própria)` : 'padrão institucional'}`}
         actions={<div className="ig-row" style={{ gap: 8 }}>
-          {session.can('quality:edit') && !moving ? <Button variant="primary" onClick={() => { setMoving(true); setSaved(null); }}>Registrar movimento</Button> : null}
+          {session.can('quality:supplies:edit') && !moving ? <Button variant="primary" onClick={() => { setMoving(true); setSaved(null); }}>Registrar movimento</Button> : null}
           {onEdit ? <Button onClick={onEdit}>Editar cadastro</Button> : null}
         </div>}>
         <p style={{ margin: 0 }}><StatusBadge status={supply.evaluation.status}>{supply.evaluation.label}</StatusBadge> Estoque {formatNumber(supply.quantity, supply.unit === 'mL' ? 0 : 1)} {supply.unit} · consumo médio {formatNumber(supply.dailyConsumption, 1)}/dia</p>

@@ -25,7 +25,8 @@ test.describe('CCIH operacional', () => {
   test('auditoria → achados → conclusão → não conformidade com plano 5W2H', async ({ page }) => {
     const problems = watchProblems(page);
     const title = `Auditoria E2E ${Date.now().toString(36)}`;
-    await login(page, 'enf.ccih');
+    // Audits are conducted by Quality (the CCIH nurse only consults them).
+    await login(page, 'enf.qualidade');
     await page.goto('/auditorias');
     await page.getByRole('button', { name: 'Planejar auditoria' }).click();
     await page.getByLabel(/^Título/).fill(title);
@@ -35,7 +36,7 @@ test.describe('CCIH operacional', () => {
 
     const step = async (label: string) => {
       await page.getByRole('button', { name: label, exact: true }).click();
-      await page.getByLabel(/^Justificativa/).fill('Etapa registrada pela equipe da CCIH');
+      await page.getByLabel(/^Justificativa/).fill('Etapa registrada pela equipe da Qualidade');
       await page.getByRole('button', { name: 'Continuar' }).click();
       await page.getByRole('dialog').getByRole('button', { name: 'Confirmar' }).click();
     };
@@ -76,11 +77,12 @@ test.describe('CCIH operacional', () => {
     await page.goto('/admin/usuarios');
     await page.getByRole('button', { name: 'Novo usuário' }).click();
     await page.getByLabel(/^Login/).fill(loginName);
-    await page.getByLabel(/^Nome de exibição/).fill('Usuário E2E (teste)');
-    await page.getByRole('checkbox', { name: 'Consulta' }).check();
+    await page.getByLabel(/^Nome completo/).fill('Usuário E2E (teste)');
+    await page.getByLabel(/^Função no sistema/).selectOption({ label: 'Técnico de Enfermagem CCIH' });
     await page.getByRole('radio', { name: 'Todos os setores' }).check();
     await page.getByRole('textbox', { name: 'Justificativa da alteração' }).fill('Acesso de teste automatizado');
     await page.getByRole('button', { name: 'Criar usuário' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Criar' }).click();
     const banner = page.getByText(/^Senha temporária de /);
     await expect(banner).toBeVisible();
     const temporary = (await banner.innerText()).split(': ').at(-1)!.trim();

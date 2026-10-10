@@ -161,7 +161,9 @@ async function loadSummaries(db: Db, auth: AuthContext, ids: string[]): Promise<
 
 export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }) {
   const view = { preHandler: requirePermission(db, 'cme:view') };
-  const edit = { preHandler: requirePermission(db, 'cme:edit') };
+  // Execution is split: assembling loads and recording cycles/uses, and recording tests; deciding is cme:release.
+  const cycle = { preHandler: requirePermission(db, 'cme:cycle:record') };
+  const tests = { preHandler: requirePermission(db, 'cme:test:record') };
   const release = { preHandler: requirePermission(db, 'cme:release') };
   const configure = { preHandler: requirePermission(db, 'cme:configure') };
 
@@ -321,7 +323,7 @@ export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }
     };
   });
 
-  app.post('/cme/loads', edit, async (req, reply) => {
+  app.post('/cme/loads', cycle, async (req, reply) => {
     const auth = requireAuth(req);
     const b = parse(LoadCreate, req.body);
     const st = await findSterilizer(db, auth, b.sterilizerId);
@@ -371,7 +373,7 @@ export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }
   });
 
   /** Start of the cycle of a load assembled by reading (its packages are then fixed). */
-  app.post<{ Params: { id: string } }>('/cme/loads/:id/start', edit, async (req) => {
+  app.post<{ Params: { id: string } }>('/cme/loads/:id/start', cycle, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(CycleStart, req.body);
@@ -391,7 +393,7 @@ export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }
     });
   });
 
-  app.post<{ Params: { id: string } }>('/cme/loads/:id/cycle', edit, async (req) => {
+  app.post<{ Params: { id: string } }>('/cme/loads/:id/cycle', cycle, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(CycleFinish, req.body);
@@ -448,7 +450,7 @@ export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }
     return { tests: await testDtos(db, await list.orderBy('t.performed_at').limit(2000).execute()) };
   });
 
-  app.post('/cme/tests', edit, async (req, reply) => {
+  app.post('/cme/tests', tests, async (req, reply) => {
     const auth = requireAuth(req);
     const b = parse(TestCreate, req.body);
     const { tz } = await context(db, auth.institutionId);
@@ -487,7 +489,7 @@ export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }
     return { id: row.id };
   });
 
-  app.post<{ Params: { id: string } }>('/cme/tests/:id/replace', edit, async (req, reply) => {
+  app.post<{ Params: { id: string } }>('/cme/tests/:id/replace', tests, async (req, reply) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(TestReplace, req.body);
@@ -564,7 +566,7 @@ export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }
     return recordUse(req, auth, b.labelCode, usedAt, s.sectorId, id);
   });
 
-  app.post('/cme/uses', edit, async (req, reply) => {
+  app.post('/cme/uses', cycle, async (req, reply) => {
     const auth = requireAuth(req);
     const b = parse(LooseUse, req.body);
     const sector = await db.selectFrom('sector').select('id').where('id', '=', b.sectorId).where('institution_id', '=', auth.institutionId).where('active', '=', true).executeTakeFirst();
@@ -573,7 +575,7 @@ export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }
     return recordUse(req, auth, b.labelCode, b.usedAt, b.sectorId, null);
   });
 
-  app.post<{ Params: { id: string } }>('/material-uses/:id/void', { preHandler: requirePermission(db, 'surgery:edit', 'cme:edit') }, async (req) => {
+  app.post<{ Params: { id: string } }>('/material-uses/:id/void', { preHandler: requirePermission(db, 'surgery:edit', 'cme:cycle:record') }, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(VoidBody, req.body);
@@ -581,7 +583,7 @@ export async function cmeRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }
       const before = await trx.selectFrom('material_use').selectAll().where('id', '=', id).where('institution_id', '=', auth.institutionId).forUpdate().executeTakeFirst();
       if (!before) throw notFound('Registro de uso');
       // Linked to a surgery: only who records surgeries may undo it; loose use: the CME.
-      if (before.surgery_id ? !auth.permissions.includes('surgery:edit') : !auth.permissions.includes('cme:edit')) throw new HttpError(403, 'sem_permissao', 'Seu perfil não tem permissão para esta ação.');
+      if (before.surgery_id ? !auth.permissions.includes('surgery:edit') : !auth.permissions.includes('cme:cycle:record')) throw new HttpError(403, 'sem_permissao', 'Seu perfil não tem permissão para esta ação.');
       if (before.surgery_id && !(await surgerySummaries(trx, { institutionId: auth.institutionId, scope: auth.scope, ids: [before.surgery_id] })).rows.length) throw notFound('Registro de uso');
       if (before.voided_at) throw new HttpError(409, 'ja_anulado', 'Este registro já foi anulado.');
       const after = await trx.updateTable('material_use').set({ voided_at: new Date(), voided_by_name: auth.displayName, void_reason: b.justification }).where('id', '=', id).returningAll().executeTakeFirstOrThrow();

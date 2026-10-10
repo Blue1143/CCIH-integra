@@ -58,7 +58,12 @@ const inScope = (auth: AuthContext, sectorId: string | null) => !auth.scope || s
 
 export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }) {
   const view = { preHandler: requirePermission(db, 'quality:view') };
-  const edit = { preHandler: requirePermission(db, 'quality:edit') };
+  // Checklists (bundles, hand hygiene) are recorded by the operational teams; audits are conducted by
+  // Quality; anyone with nc:record may register a non-conformity, only Quality treats and closes it.
+  const checklist = { preHandler: requirePermission(db, 'quality:bundle:record') };
+  const manage = { preHandler: requirePermission(db, 'quality:audit:manage') };
+  const execute = { preHandler: requirePermission(db, 'quality:audit:execute', 'quality:audit:manage') };
+  const ncRecord = { preHandler: requirePermission(db, 'nc:record', 'quality:audit:manage') };
   const configure = { preHandler: requirePermission(db, 'quality:configure') };
 
   const range = async (auth: AuthContext, from?: string, to?: string) => {
@@ -142,7 +147,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     };
   });
 
-  app.post('/bundles/audits', edit, async (req, reply) => {
+  app.post('/bundles/audits', checklist, async (req, reply) => {
     const auth = requireAuth(req);
     const b = parse(AuditCreate, req.body);
     await assertSector(db, auth, b.sectorId);
@@ -171,7 +176,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
   });
 
   /** Records are never deleted: a void keeps the audit visible, out of the indicators, with the reason. */
-  app.post<{ Params: { id: string } }>('/bundles/audits/:id/void', edit, async (req) => {
+  app.post<{ Params: { id: string } }>('/bundles/audits/:id/void', checklist, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const { reason } = parse(VoidBody, req.body);
@@ -227,7 +232,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     };
   });
 
-  app.post('/hand-hygiene', edit, async (req, reply) => {
+  app.post('/hand-hygiene', checklist, async (req, reply) => {
     const auth = requireAuth(req);
     const b = parse(HhCreate, req.body);
     await assertSector(db, auth, b.sectorId);
@@ -241,7 +246,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     return { id: row.id };
   });
 
-  app.post<{ Params: { id: string } }>('/hand-hygiene/:id/void', edit, async (req) => {
+  app.post<{ Params: { id: string } }>('/hand-hygiene/:id/void', checklist, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const { reason } = parse(VoidBody, req.body);
@@ -303,7 +308,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     return { ...dto, history: await history('quality_audit_status', 'audit_id', id), ncs: await ncDtos(auth, { auditId: id }) };
   });
 
-  app.post('/quality/audits', edit, async (req, reply) => {
+  app.post('/quality/audits', manage, async (req, reply) => {
     const auth = requireAuth(req);
     const b = parse(QaCreate, req.body);
     if (b.sectorId) await assertSector(db, auth, b.sectorId);
@@ -318,7 +323,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     return { id: row.id };
   });
 
-  app.put<{ Params: { id: string } }>('/quality/audits/:id', edit, async (req) => {
+  app.put<{ Params: { id: string } }>('/quality/audits/:id', manage, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(QaUpdate, req.body);
@@ -333,7 +338,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     });
   });
 
-  app.post<{ Params: { id: string } }>('/quality/audits/:id/status', edit, async (req) => {
+  app.post<{ Params: { id: string } }>('/quality/audits/:id/status', manage, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(QaStatus, req.body);
@@ -375,7 +380,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     };
   });
 
-  app.post('/quality/nonconformities', edit, async (req, reply) => {
+  app.post('/quality/nonconformities', ncRecord, async (req, reply) => {
     const auth = requireAuth(req);
     const b = parse(NcCreate, req.body);
     if (b.sectorId) await assertSector(db, auth, b.sectorId);
@@ -396,7 +401,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     return { id: row.id };
   });
 
-  app.post<{ Params: { id: string } }>('/quality/nonconformities/:id/status', edit, async (req) => {
+  app.post<{ Params: { id: string } }>('/quality/nonconformities/:id/status', manage, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(NcStatusBody, req.body);
@@ -415,7 +420,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     });
   });
 
-  app.post<{ Params: { id: string } }>('/quality/nonconformities/:id/actions', edit, async (req, reply) => {
+  app.post<{ Params: { id: string } }>('/quality/nonconformities/:id/actions', manage, async (req, reply) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(ActionCreate, req.body);
@@ -431,7 +436,7 @@ export async function qualityRoutes(app: FastifyInstance, { db }: { db: Kysely<D
     return { id: row.id };
   });
 
-  app.post<{ Params: { id: string } }>('/quality/actions/:id/status', edit, async (req) => {
+  app.post<{ Params: { id: string } }>('/quality/actions/:id/status', execute, async (req) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(ActionStatusBody, req.body);

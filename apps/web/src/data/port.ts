@@ -5,7 +5,7 @@ import type {
   QualityAuditDetail, QualityAuditDto, StaffMember, SupplyDto, SupplyMovementDto, SurveillanceRow, TrainingCoveragePayload, TrainingDto, TrainingSessionDto,
   AttachmentDto, CmeOverview, CmeTestDto, EquipmentStatus, IbControl, InstrumentSetDto, LoadDetail, LoadStatus, LoadSummary, PackagingType, RecordedTestType,
   SterilizerDto, SterilizerType, TestResult, TraceResult,
-  AssetDto, CmeSectorDto, UseRecorded, UserNotificationDto, FlowConfigDto, InputMethod, ProcessDetail, ProcessStep, ProcessSummaryDto, ScanConfig, ScanEventDto, ScanResponse, StationDto, Symbology,
+  AssetDto, CmeSectorDto, UseRecorded, UserNotificationDto, RoleCode, UserAccessInput, UserAccountDto, UserHistoryEntry, FlowConfigDto, InputMethod, ProcessDetail, ProcessStep, ProcessSummaryDto, ScanConfig, ScanEventDto, ScanResponse, StationDto, Symbology,
 } from '@ccih/domain';
 
 export type { InstitutionData, Sector, SectorKind, Unit } from '@ccih/domain';
@@ -29,6 +29,8 @@ export interface SessionInfo {
   session: { expiresAt: string; idleExpiresAt: string; idleMinutes: number };
   /** Temporary or expired password: the app only allows the password change. */
   mustChangePassword?: boolean;
+  /** The creator account (the only one that creates system administrators). */
+  isFounder?: boolean;
 }
 
 export interface AuthPort {
@@ -81,25 +83,13 @@ export interface PolicyInput extends Justified {
   rowVersion: number;
 }
 
-export interface AdminUser {
-  id: string;
-  login: string;
-  displayName: string;
-  active: boolean;
-  scopeAll: boolean;
-  lockedUntil: string | null;
-  lastLoginAt: string | null;
-  rowVersion: number;
-  roles: string[];
-  sectorIds: string[];
-}
+/** Account management (functions, scope, individual grants) — shapes shared with the API. */
+export type { UserAccountDto as AdminUser, UserAccessInput, UserHistoryEntry } from '@ccih/domain';
 
-export interface UserAccessInput extends Justified {
-  roles: string[];
-  scopeAll: boolean;
-  sectorIds: string[];
-  active: boolean;
-  rowVersion: number;
+export interface UsersMeta {
+  assignableRoles: RoleCode[];
+  modules: Array<'ccih' | 'cme'> | 'all' | null;
+  supervisors: Array<{ id: string; name: string }>;
 }
 
 export interface AuditRow {
@@ -131,14 +121,16 @@ export interface AdminPort {
   updateReference(id: string, input: ReferenceInput & { rowVersion: number }): Promise<void>;
   validateReference(id: string, input: Justified & { status: 'vigente' | 'revisao_necessaria' | 'arquivado'; rowVersion: number }): Promise<void>;
   savePolicy(input: PolicyInput): Promise<void>;
-  users(): Promise<{ users: AdminUser[]; roleLabels: Record<string, string> }>;
-  roles(): Promise<{ roles: Array<{ code: string; name: string; permissions: string[] }>; permissions: Record<string, string> }>;
-  patchUser(id: string, input: UserAccessInput): Promise<void>;
+  users(q?: Query): Promise<{ users: UserAccountDto[] }>;
+  usersMeta(): Promise<UsersMeta>;
+  userHistory(id: string): Promise<{ entries: UserHistoryEntry[] }>;
+  roles(): Promise<{ roles: Array<{ code: string; name: string; permissions: string[]; module: string }>; permissions: Record<string, string> }>;
+  updateUser(id: string, input: UserAccessInput & { rowVersion: number }): Promise<void>;
   unlockUser(id: string): Promise<void>;
   audit(query: { entity?: string; action?: string; page: number; pageSize: number }): Promise<AuditPage>;
   verifyAudit(): Promise<{ ok: boolean; checked: number; brokenAtId: string | null }>;
   logExport(event: { resource: string; rows: number; filters?: Record<string, string> }): Promise<void>;
-  createUser(input: Justified & { login: string; displayName: string; roles: string[]; scopeAll: boolean; sectorIds: string[] }): Promise<{ id: string; temporaryPassword: string }>;
+  createUser(input: UserAccessInput & { login: string }): Promise<{ id: string; temporaryPassword: string }>;
   resetPassword(id: string, justification: string): Promise<{ temporaryPassword: string }>;
 }
 

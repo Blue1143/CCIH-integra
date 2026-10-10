@@ -14,8 +14,8 @@ type Entity = AttachmentEntity;
 
 /** Who may read and attach files to each kind of record. */
 const RULES: Record<Entity, { view: Permission; edit: Permission }> = {
-  sterilization_test: { view: 'cme:view', edit: 'cme:edit' },
-  training_session: { view: 'quality:view', edit: 'quality:edit' },
+  sterilization_test: { view: 'cme:view', edit: 'cme:test:record' },
+  training_session: { view: 'quality:view', edit: 'quality:training:edit' },
 };
 
 const UploadQuery = z.object({ entity: z.enum(['sterilization_test', 'training_session']), entityId: Uuid }).strict();

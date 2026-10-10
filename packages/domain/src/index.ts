@@ -14,6 +14,7 @@ export * from './indicators/types';
 export * from './indicators/engine';
 export * from './indicators/catalog';
 export * from './permissions';
+export * from './users';
 export * from './rule-registry';
 export * from './org';
 export * from './clinical/patient';

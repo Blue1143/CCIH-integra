@@ -44,12 +44,12 @@ function BowieDick() {
     { key: 'lot', label: 'Pacote de teste', render: (t) => <span className="ig-mono ig-small">{t.indicatorLot}</span> },
     { key: 'notes', label: 'Observações', render: (t) => <span className="ig-small">{t.notes ?? '—'}{t.current ? '' : ' (versão substituída)'}</span> },
     { key: 'by', label: 'Registrado por', value: (t) => t.recordedBy },
-    { key: 'files', label: 'Evidência', render: (t) => <Attachments entity="sterilization_test" entityId={t.id} files={t.attachments} canUpload={session.can('cme:edit') && t.current} /> },
+    { key: 'files', label: 'Evidência', render: (t) => <Attachments entity="sterilization_test" entityId={t.id} files={t.attachments} canUpload={session.can('cme:test:record') && t.current} /> },
   ];
   return (
     <div className="page">
       <PageHeader title="Bowie-Dick" subtitle="Teste diário de remoção de ar das autoclaves a vapor com pré-vácuo, antes da primeira carga. Reprovado: bloqueie o equipamento até nova aprovação."
-        actions={session.can('cme:edit') && !adding ? <Button icon="plus" variant="primary" onClick={() => setAdding(true)}>Registrar Bowie-Dick</Button> : null} />
+        actions={session.can('cme:test:record') && !adding ? <Button icon="plus" variant="primary" onClick={() => setAdding(true)}>Registrar Bowie-Dick</Button> : null} />
       <CmeNav />
       {adding ? <BowieDickForm sterilizers={steam.filter((s) => s.status !== 'inativo')} onDone={() => setAdding(false)} /> : null}
       <div className="ig-table-scroll">

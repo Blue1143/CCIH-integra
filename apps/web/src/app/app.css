@@ -161,3 +161,6 @@ a { color: var(--primary); }
 .rt-ativo .rt-dot { background: var(--ok); }
 .rt-reconectando .rt-dot { background: var(--warn); }
 .rt-periodico .rt-dot { background: var(--warn); }
+.ig-fieldset { border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin: 0; }
+.ig-fieldset > legend, .ig-fieldset > summary { font-weight: 600; padding: 0 var(--space-1); cursor: default; }
+details.ig-fieldset > summary { cursor: pointer; }

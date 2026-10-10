@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'kysely';
 import { todayIn } from '@ccih/domain';
-import { login, setupTestApp, teardown, type Session, type TestContext } from './helpers';
+import { login, setupTestApp, teardown, type Session, type TestContext, accessBody } from './helpers';
 
 let ctx: TestContext;
 let enf: Session;
@@ -185,7 +185,7 @@ describe('sector scope on clinical data', () => {
     const admin = await login(ctx.app, 'admin');
     const user = await ctx.db.selectFrom('app_user').select(['id', 'row_version']).where('login', '=', 'consulta').executeTakeFirstOrThrow();
     const coronary = await sectorId('uti-coronariana');
-    const patch = await api(admin, 'PATCH', `/users/${user.id}`, { roles: ['enf_ccih'], scopeAll: false, sectorIds: [coronary], active: true, rowVersion: user.row_version, justification: 'Teste de escopo por setor' });
+    const patch = await api(admin, 'PUT', `/users/${user.id}`, accessBody({ displayName: 'Consulta (escopo)', functionRole: 'enf_ccih', scopeAll: false, sectorIds: [coronary], rowVersion: user.row_version, justification: 'Teste de escopo por setor' }));
     expect(patch.statusCode).toBe(200);
     const scoped = await login(ctx.app, 'consulta');
     const list = (await api(scoped, 'GET', '/patients?pageSize=100')).json();

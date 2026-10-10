@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'kysely';
-import { ORIGIN, login, setupTestApp, teardown, type Session, type TestContext } from './helpers';
+import { ORIGIN, accessBody, login, setupTestApp, teardown, type Session, type TestContext } from './helpers';
 
 let ctx: TestContext;
 let enf: Session;
 let auditor: Session;
 let admin: Session;
+let quality: Session;
 const api = (s: Session, method: 'GET' | 'POST' | 'PUT', url: string, payload?: unknown) => ctx.app.inject({ method, url: `/api${url}`, headers: s.headers, ...(payload !== undefined ? { payload: payload as object } : {}) });
 const sectorId = async (code: string) => (await ctx.db.selectFrom('sector').select('id').where('code', '=', code).executeTakeFirstOrThrow()).id;
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
@@ -14,7 +15,7 @@ const J = 'Registro de teste da CCIH';
 
 beforeAll(async () => {
   ctx = await setupTestApp();
-  [enf, auditor, admin] = await Promise.all([login(ctx.app, 'enf.ccih'), login(ctx.app, 'auditor'), login(ctx.app, 'admin')]);
+  [enf, auditor, admin, quality] = await Promise.all([login(ctx.app, 'enf.ccih'), login(ctx.app, 'auditor'), login(ctx.app, 'admin'), login(ctx.app, 'enf.qualidade')]);
 });
 afterAll(async () => teardown(ctx));
 
@@ -41,10 +42,11 @@ describe('bundles and hand hygiene', () => {
     const svd = templates.find((t: { code: string }) => t.code === 'bundle-svd');
     const items = svd.items.map((i: { id: string; label: string }, n: number) => ({ id: i.id, label: n === 0 ? 'Fixação adequada conforme protocolo revisado' : i.label }));
     const body = { code: 'bundle-svd', name: svd.name, metric: 'svd', method: 'tudo_ou_nada', referenceId: null, active: true, items, rowVersion: svd.rowVersion, justification: J };
-    expect((await api(enf, 'PUT', '/bundles/templates', body)).statusCode).toBe(200);
+    expect((await api(enf, 'PUT', '/bundles/templates', body)).statusCode).toBe(403);
+    expect((await api(admin, 'PUT', '/bundles/templates', body)).statusCode).toBe(200);
     const old = await ctx.db.selectFrom('bundle_audit_answer').select('item_label').where('item_id', '=', svd.items[0].id).limit(1).executeTakeFirstOrThrow();
     expect(old.item_label).toBe('Fixação adequada');
-    const dup = await api(enf, 'PUT', '/bundles/templates', { code: 'bundle-svd-2', name: 'Outro', metric: 'svd', method: 'por_item', referenceId: null, active: true, items: [{ id: null, label: 'Item' }], rowVersion: null, justification: J });
+    const dup = await api(admin, 'PUT', '/bundles/templates', { code: 'bundle-svd-2', name: 'Outro', metric: 'svd', method: 'por_item', referenceId: null, active: true, items: [{ id: null, label: 'Item' }], rowVersion: null, justification: J });
     expect(dup.json().fields[0].path).toBe('metric');
     expect((await api(auditor, 'PUT', '/bundles/templates', body)).statusCode).toBe(403);
   });
@@ -61,29 +63,29 @@ describe('bundles and hand hygiene', () => {
 describe('quality audits, non-conformities and 5W2H', () => {
   it('follows the workflow with its requirements and an append-only history', async () => {
     const sector = await sectorId('clinica-medica');
-    const created = await api(enf, 'POST', '/quality/audits', { title: 'Auditoria de teste', kind: 'processo', sectorId: sector, scope: null, plannedFor: today(), justification: J });
+    const created = await api(quality, 'POST', '/quality/audits', { title: 'Auditoria de teste', kind: 'processo', sectorId: sector, scope: null, plannedFor: today(), justification: J });
     const id = created.json().id;
-    let a = (await api(enf, 'GET', `/quality/audits/${id}`)).json();
-    expect((await api(enf, 'POST', `/quality/audits/${id}/status`, { to: 'em_andamento', justification: J, rowVersion: a.rowVersion })).statusCode).toBe(200);
-    a = (await api(enf, 'GET', `/quality/audits/${id}`)).json();
-    expect((await api(enf, 'POST', `/quality/audits/${id}/status`, { to: 'concluida', justification: J, rowVersion: a.rowVersion })).json().fields[0].path).toBe('findings');
-    await api(enf, 'PUT', `/quality/audits/${id}`, { title: a.title, scope: null, plannedFor: a.plannedFor, findings: 'Achado de teste', rowVersion: a.rowVersion, justification: J });
-    a = (await api(enf, 'GET', `/quality/audits/${id}`)).json();
-    expect((await api(enf, 'POST', `/quality/audits/${id}/status`, { to: 'concluida', justification: J, rowVersion: a.rowVersion })).statusCode).toBe(200);
+    let a = (await api(quality, 'GET', `/quality/audits/${id}`)).json();
+    expect((await api(quality, 'POST', `/quality/audits/${id}/status`, { to: 'em_andamento', justification: J, rowVersion: a.rowVersion })).statusCode).toBe(200);
+    a = (await api(quality, 'GET', `/quality/audits/${id}`)).json();
+    expect((await api(quality, 'POST', `/quality/audits/${id}/status`, { to: 'concluida', justification: J, rowVersion: a.rowVersion })).json().fields[0].path).toBe('findings');
+    await api(quality, 'PUT', `/quality/audits/${id}`, { title: a.title, scope: null, plannedFor: a.plannedFor, findings: 'Achado de teste', rowVersion: a.rowVersion, justification: J });
+    a = (await api(quality, 'GET', `/quality/audits/${id}`)).json();
+    expect((await api(quality, 'POST', `/quality/audits/${id}/status`, { to: 'concluida', justification: J, rowVersion: a.rowVersion })).statusCode).toBe(200);
 
-    const nc = (await api(enf, 'POST', '/quality/nonconformities', { auditId: id, sectorId: sector, origin: 'auditoria', severity: 'media', description: 'NC de teste', detectedOn: today(), justification: J })).json().id;
-    let n = (await api(enf, 'GET', `/quality/nonconformities/${nc}`)).json();
-    expect((await api(enf, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'em_tratamento', effectiveness: null, justification: J, rowVersion: n.rowVersion })).json().fields[0].path).toBe('actions');
-    const action = (await api(enf, 'POST', `/quality/nonconformities/${nc}/actions`, { what: 'Treinar equipe', why: 'NC de teste', where: 'Clínica Médica', who: 'Coordenação', dueOn: today(), how: 'Treinamento em serviço', howMuch: null })).json().id;
-    expect((await api(enf, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'em_tratamento', effectiveness: null, justification: J, rowVersion: n.rowVersion })).statusCode).toBe(200);
-    n = (await api(enf, 'GET', `/quality/nonconformities/${nc}`)).json();
-    expect((await api(enf, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'aguardando_eficacia', effectiveness: null, justification: J, rowVersion: n.rowVersion })).statusCode).toBe(400);
-    expect((await api(enf, 'POST', `/quality/actions/${action}/status`, { status: 'concluida', completedOn: today(), rowVersion: 1, justification: J })).statusCode).toBe(200);
-    expect((await api(enf, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'aguardando_eficacia', effectiveness: null, justification: J, rowVersion: n.rowVersion })).statusCode).toBe(200);
-    n = (await api(enf, 'GET', `/quality/nonconformities/${nc}`)).json();
-    expect((await api(enf, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'encerrada', effectiveness: null, justification: J, rowVersion: n.rowVersion })).json().fields[0].path).toBe('effectiveness');
-    expect((await api(enf, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'encerrada', effectiveness: 'Reauditoria conforme', justification: J, rowVersion: n.rowVersion })).statusCode).toBe(200);
-    n = (await api(enf, 'GET', `/quality/nonconformities/${nc}`)).json();
+    const nc = (await api(quality, 'POST', '/quality/nonconformities', { auditId: id, sectorId: sector, origin: 'auditoria', severity: 'media', description: 'NC de teste', detectedOn: today(), justification: J })).json().id;
+    let n = (await api(quality, 'GET', `/quality/nonconformities/${nc}`)).json();
+    expect((await api(quality, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'em_tratamento', effectiveness: null, justification: J, rowVersion: n.rowVersion })).json().fields[0].path).toBe('actions');
+    const action = (await api(quality, 'POST', `/quality/nonconformities/${nc}/actions`, { what: 'Treinar equipe', why: 'NC de teste', where: 'Clínica Médica', who: 'Coordenação', dueOn: today(), how: 'Treinamento em serviço', howMuch: null })).json().id;
+    expect((await api(quality, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'em_tratamento', effectiveness: null, justification: J, rowVersion: n.rowVersion })).statusCode).toBe(200);
+    n = (await api(quality, 'GET', `/quality/nonconformities/${nc}`)).json();
+    expect((await api(quality, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'aguardando_eficacia', effectiveness: null, justification: J, rowVersion: n.rowVersion })).statusCode).toBe(400);
+    expect((await api(quality, 'POST', `/quality/actions/${action}/status`, { status: 'concluida', completedOn: today(), rowVersion: 1, justification: J })).statusCode).toBe(200);
+    expect((await api(quality, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'aguardando_eficacia', effectiveness: null, justification: J, rowVersion: n.rowVersion })).statusCode).toBe(200);
+    n = (await api(quality, 'GET', `/quality/nonconformities/${nc}`)).json();
+    expect((await api(quality, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'encerrada', effectiveness: null, justification: J, rowVersion: n.rowVersion })).json().fields[0].path).toBe('effectiveness');
+    expect((await api(quality, 'POST', `/quality/nonconformities/${nc}/status`, { to: 'encerrada', effectiveness: 'Reauditoria conforme', justification: J, rowVersion: n.rowVersion })).statusCode).toBe(200);
+    n = (await api(quality, 'GET', `/quality/nonconformities/${nc}`)).json();
     expect(n.history.map((h: { to: string }) => h.to)).toEqual(['aberta', 'em_tratamento', 'aguardando_eficacia', 'encerrada']);
     await expect(sql`DELETE FROM nonconformity_status WHERE nonconformity_id = ${nc}`.execute(ctx.db)).rejects.toThrow();
     expect((await api(auditor, 'POST', `/quality/nonconformities/${nc}/actions`, { what: 'x', why: 'x', where: 'x', who: 'x', dueOn: today(), how: 'x', howMuch: null })).statusCode).toBe(403);
@@ -116,7 +118,7 @@ describe('alert center', () => {
   it('closes alerts automatically when the source condition is resolved', async () => {
     const overdue = await ctx.db.selectFrom('alert').select(['entity_id']).where('kind', '=', 'plano_acao_atrasado').where('status', '<>', 'encerrado').executeTakeFirstOrThrow();
     const action = await ctx.db.selectFrom('action_plan').select('row_version').where('id', '=', overdue.entity_id!).executeTakeFirstOrThrow();
-    expect((await api(enf, 'POST', `/quality/actions/${overdue.entity_id}/status`, { status: 'concluida', completedOn: today(), rowVersion: action.row_version, justification: J })).statusCode).toBe(200);
+    expect((await api(quality, 'POST', `/quality/actions/${overdue.entity_id}/status`, { status: 'concluida', completedOn: today(), rowVersion: action.row_version, justification: J })).statusCode).toBe(200);
     await api(enf, 'POST', '/alerts/refresh');
     const after = await ctx.db.selectFrom('alert').select(['status', 'closed_by_name']).where('entity_id', '=', overdue.entity_id).orderBy('created_at', 'desc').executeTakeFirstOrThrow();
     expect(after).toMatchObject({ status: 'encerrado', closed_by_name: 'Sistema' });
@@ -186,7 +188,7 @@ describe('post-discharge SSI surveillance', () => {
 describe('password lifecycle', () => {
   it('creates users with a temporary password that must be replaced before any access', async () => {
     const coronary = await sectorId('uti-coronariana');
-    const created = await api(admin, 'POST', '/users', { login: 'novo.usuario', displayName: 'Novo Usuário (teste)', roles: ['enf_ccih'], scopeAll: false, sectorIds: [coronary], justification: J });
+    const created = await api(admin, 'POST', '/users', accessBody({ login: 'novo.usuario', displayName: 'Novo Usuário (teste)', functionRole: 'enf_ccih', scopeAll: false, sectorIds: [coronary], justification: J }));
     expect(created.statusCode).toBe(201);
     const temp = created.json().temporaryPassword as string;
     const s = await login(ctx.app, 'novo.usuario', temp);

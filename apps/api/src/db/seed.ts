@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Kysely } from 'kysely';
-import { DEFAULT_ROLE_PERMISSIONS, ROLE_LABEL, addMonths, monthStart, parametersFromRules, todayIn, type RoleCode } from '@ccih/domain';
+import { DEFAULT_ROLE_PERMISSIONS, ROLE_LABEL, ROLE_MODULE, addDays, addMonths, monthStart, parametersFromRules, todayIn, type Permission, type RoleCode } from '@ccih/domain';
 import { DEMO_CONFIG, DEMO_LOAD_POLICY, DEMO_REFERENCES, DEMO_SECTORS, DEMO_UNITS, WARD_PROFILES, generateFacts } from '@ccih/demo-data';
 import { audit } from '../audit/audit';
 import { hashPassword, passwordProblem } from '../security/crypto';
@@ -11,14 +11,23 @@ import { seedCme } from './seed-cme';
 import type { DB } from './types';
 
 /** Synthetic users, one per initial profile. Logins are fictitious; passwords are never stored in code. */
-const DEMO_USERS: Array<{ login: string; name: string; role: RoleCode; jobRole: string; scope: 'all' | string[] }> = [
-  { login: 'admin', name: 'Administrador (demonstração)', role: 'admin', jobRole: 'Analista de sistemas', scope: 'all' },
-  { login: 'enf.ccih', name: 'Enfermeira CCIH (demonstração)', role: 'enf_ccih', jobRole: 'Enfermeiro(a) CCIH', scope: 'all' },
-  { login: 'infecto', name: 'Infectologista (demonstração)', role: 'infectologista', jobRole: 'Médico(a) infectologista', scope: 'all' },
-  { login: 'cme', name: 'Responsável CME (demonstração)', role: 'cme', jobRole: 'Enfermeiro(a) RT da CME', scope: ['cme'] },
-  { login: 'auditor', name: 'Auditor (demonstração)', role: 'auditor', jobRole: 'Auditor(a) de qualidade', scope: 'all' },
-  { login: 'gestor', name: 'Gestor (demonstração)', role: 'gestor', jobRole: 'Gestor(a) assistencial', scope: 'all' },
-  { login: 'consulta', name: 'Consulta Unidade Norte (demonstração)', role: 'consulta', jobRole: 'Coordenador(a) de unidade', scope: ['uti-coronariana', 'clinica-cirurgica'] },
+type Category = 'enfermeiro' | 'tecnico_enfermagem' | 'medico' | 'administrativo' | 'aprendiz' | 'outro';
+/** Synthetic users, one per function. The creator account is never seeded: it is created by `admin:bootstrap`. */
+const DEMO_USERS: Array<{ login: string; name: string; role: RoleCode; jobRole: string; category: Category; scope: 'all' | string[]; grants?: Permission[] }> = [
+  { login: 'admin', name: 'Administrador (demonstração)', role: 'admin', jobRole: 'Analista de sistemas', category: 'administrativo', scope: 'all' },
+  { login: 'enf.ccih', name: 'Enfermeira CCIH (demonstração)', role: 'enf_ccih', jobRole: 'Enfermeiro(a) CCIH', category: 'enfermeiro', scope: 'all' },
+  { login: 'tec.ccih', name: 'Técnico de Enfermagem CCIH (demonstração)', role: 'tec_ccih', jobRole: 'Técnico(a) de enfermagem CCIH', category: 'tecnico_enfermagem', scope: 'all' },
+  { login: 'adm.ccih', name: 'ADM CCIH (demonstração)', role: 'adm_ccih', jobRole: 'Coordenador(a) da CCIH', category: 'enfermeiro', scope: 'all' },
+  { login: 'infecto', name: 'Infectologista (demonstração)', role: 'infectologista', jobRole: 'Médico(a) infectologista', category: 'medico', scope: 'all' },
+  { login: 'cme', name: 'Enfermeira CME (demonstração)', role: 'cme', jobRole: 'Enfermeiro(a) RT da CME', category: 'enfermeiro', scope: ['cme'] },
+  { login: 'tec.cme', name: 'Técnico de Enfermagem CME (demonstração)', role: 'tec_cme', jobRole: 'Técnico(a) de enfermagem CME', category: 'tecnico_enfermagem', scope: ['cme'] },
+  { login: 'adm.cme', name: 'ADM CME (demonstração)', role: 'adm_cme', jobRole: 'Coordenador(a) da CME', category: 'enfermeiro', scope: ['cme'] },
+  { login: 'enf.qualidade', name: 'Enfermeira Qualidade (demonstração)', role: 'enf_qualidade', jobRole: 'Enfermeiro(a) da Qualidade', category: 'enfermeiro', scope: 'all' },
+  { login: 'tec.qualidade', name: 'Técnico de Enfermagem Qualidade (demonstração)', role: 'tec_qualidade', jobRole: 'Técnico(a) de enfermagem da Qualidade', category: 'tecnico_enfermagem', scope: 'all' },
+  { login: 'aprendiz', name: 'Jovem Aprendiz CME (demonstração)', role: 'aprendiz', jobRole: 'Jovem aprendiz', category: 'aprendiz', scope: ['cme'], grants: ['cme:view', 'cme:scan', 'nc:record'] },
+  { login: 'auditor', name: 'Auditor (demonstração)', role: 'auditor', jobRole: 'Auditor(a) de qualidade', category: 'outro', scope: 'all' },
+  { login: 'gestor', name: 'Gestor (demonstração)', role: 'gestor', jobRole: 'Gestor(a) assistencial', category: 'administrativo', scope: 'all' },
+  { login: 'consulta', name: 'Consulta Unidade Norte (demonstração)', role: 'consulta', jobRole: 'Coordenador(a) de unidade', category: 'outro', scope: ['uti-coronariana', 'clinica-cirurgica'] },
 ];
 
 export interface SeedOptions {
@@ -62,7 +71,7 @@ export async function seedDemo(db: Kysely<DB>, opts: SeedOptions = {}): Promise<
     }
 
     for (const [code, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
-      await trx.insertInto('role').values({ institution_id: institutionId, code, name: ROLE_LABEL[code as RoleCode], permissions }).execute();
+      await trx.insertInto('role').values({ institution_id: institutionId, code, name: ROLE_LABEL[code as RoleCode], permissions, module: ROLE_MODULE[code as RoleCode] }).execute();
     }
 
     const credentials: SeedResult['credentials'] = [];
@@ -72,13 +81,21 @@ export async function seedDemo(db: Kysely<DB>, opts: SeedOptions = {}): Promise<
       const password = opts.password ?? `${randomBytes(9).toString('base64url')}-Aa1!`;
       const user = await trx
         .insertInto('app_user')
-        .values({ institution_id: institutionId, professional_id: prof.id, login: u.login, display_name: u.name, password_hash: await hashPassword(password), scope_all: u.scope === 'all', password_changed_at: now })
+        .values({
+          institution_id: institutionId, professional_id: prof.id, login: u.login, display_name: u.name, password_hash: await hashPassword(password), scope_all: u.scope === 'all', password_changed_at: now,
+          function_role: u.role, professional_category: u.category, status: 'ativo', permissions_changed_at: now, authorized_by_name: 'Carga de demonstração',
+          ...(u.grants ? { valid_from: todayIn(DEMO_CONFIG.timezone, now), valid_until: addDays(todayIn(DEMO_CONFIG.timezone, now), 180) } : {}),
+        })
         .returning('id')
         .executeTakeFirstOrThrow();
       await trx.insertInto('user_role').values({ user_id: user.id, institution_id: institutionId, role_code: u.role }).execute();
       if (u.scope !== 'all') await trx.insertInto('user_scope').values(u.scope.map((code) => ({ user_id: user.id, sector_id: sectorIds.get(code)! }))).execute();
+      if (u.grants) await trx.insertInto('user_permission').values(u.grants.map((permission) => ({ user_id: user.id, permission, granted_by: null, granted_by_name: 'Carga de demonstração', justification: 'Pacote Registro operacional CME (demonstração)', valid_until: null }))).execute();
       credentials.push({ login: u.login, role: u.role, password });
     }
+    // The apprentice is supervised by the CME nurse.
+    const [apprentice, supervisor] = await Promise.all(['aprendiz', 'cme'].map((login) => trx.selectFrom('app_user').select('id').where('login', '=', login).executeTakeFirstOrThrow()));
+    await trx.updateTable('app_user').set({ supervisor_id: supervisor!.id }).where('id', '=', apprentice!.id).execute();
 
     const refIds = new Map<string, string>();
     for (const r of DEMO_REFERENCES) {

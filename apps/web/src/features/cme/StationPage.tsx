@@ -126,7 +126,7 @@ function Station() {
                   </Field>
                 ) : null}
               </div>
-              {step === 'esterilizacao' && session.can('cme:edit') ? <AssemblyActions loadId={loadId} onCreated={setLoadId} /> : null}
+              {step === 'esterilizacao' && session.can('cme:cycle:record') ? <AssemblyActions loadId={loadId} onCreated={setLoadId} /> : null}
               {station.inputMethods.some((m) => m !== 'manual') ? (
                 <ScanInput config={station.scanConfig} allowCamera={station.inputMethods.includes('camera')} busy={busy} onCode={onCode} />
               ) : <AlertBanner tone="info" title="Estação sem leitor">Esta estação usa conferência manual no sistema.</AlertBanner>}

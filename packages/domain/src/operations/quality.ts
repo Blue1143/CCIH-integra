@@ -1,4 +1,3 @@
-import type { Permission } from '../permissions';
 
 /**
  * Quality workflows: audits, non-conformities and 5W2H action plans. Every transition requires a
@@ -75,4 +74,3 @@ export function checkAuditTransition(from: AuditStatus, to: AuditStatus, input: 
   return p;
 }
 
-export const QUALITY_EDIT: Permission = 'quality:edit';

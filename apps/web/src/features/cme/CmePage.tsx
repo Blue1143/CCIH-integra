@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { EQUIPMENT_STATUS_LABEL, LOAD_STATUS_LABEL, PACKAGING_LABEL, formatDate, type LoadStatus, type LoadSummary, type PackagingType } from '@ccih/domain';
-import { Button, DataTable, ErrorState, Field, LoadingState, StatusBadge, type Column } from '@ccih/ui';
+import { Button, DataTable, ErrorState, Field, FormMessage, LoadingState, StatusBadge, type Column } from '@ccih/ui';
+import { NcCreateForm } from '../operations/AuditsPages';
 import { useSession } from '../auth/session';
 import { FormCard } from '../clinical/patient-forms';
 import { DemoTag, PageHeader, Pager, localToIso, nowLocal, useTimeZone } from '../clinical/shared';
@@ -19,6 +20,8 @@ function Cme() {
   const tz = useTimeZone();
   const [params] = useSearchParams();
   const reprocess = params.get('reprocessar');
+  const [reporting, setReporting] = useState(false);
+  const [reported, setReported] = useState(false);
   const [creating, setCreating] = useState(!!reprocess);
   const f = useUrlFilters({ situacao: 'pendentes' });
   const overview = useQuery({ queryKey: ['cme', 'overview'], queryFn: () => cme.overview() });
@@ -40,8 +43,13 @@ function Cme() {
   return (
     <div className="page">
       <PageHeader title="CME" subtitle="Ciclos de esterilização, testes (Bowie-Dick, indicadores químicos e biológicos) e liberação de cargas pela política institucional. Toda decisão fica no histórico da carga, que não pode ser alterado."
-        actions={session.can('cme:edit') && !creating ? <Button icon="plus" variant="primary" onClick={() => setCreating(true)}>Nova carga</Button> : null} />
+        actions={<>
+          {session.can('nc:record') && !reporting ? <Button onClick={() => { setReporting(true); setReported(false); }}>Registrar não conformidade</Button> : null}
+          {session.can('cme:cycle:record') && !creating ? <Button icon="plus" variant="primary" onClick={() => setCreating(true)}>Nova carga</Button> : null}
+        </>} />
       <CmeNav />
+      {reported ? <FormMessage tone="success">Não conformidade registrada. A Qualidade faz o tratamento e o encerramento.</FormMessage> : null}
+      {reporting ? <NcCreateForm auditId={null} sectorId={null} origin="cme" onDone={(id) => { setReporting(false); setReported(!!id); }} /> : null}
       {creating ? <NewLoadForm reprocessId={reprocess} onDone={() => setCreating(false)} /> : null}
       {overview.isError ? <ErrorState onRetry={() => void overview.refetch()} /> : null}
       {o ? (

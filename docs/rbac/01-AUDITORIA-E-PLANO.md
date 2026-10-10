@@ -84,65 +84,20 @@ Tabela `user_permission` (permissão, quem concedeu, justificativa, validade). U
 
 `app_user` ganha: e-mail institucional, categoria profissional, função, situação (`pendente`, `ativo`, `suspenso`, `desativado`), criado por, autorizado por, data da última alteração de permissões, início e fim de validade, supervisor, `is_founder`. O identificador profissional usa `professional.registration` (já existe). `role` ganha `module`. Desativar mantém o usuário e todo o histórico (nada é apagado). Qualquer mudança de função, permissão, escopo ou situação encerra as sessões do usuário (já existe; será estendido a concessões individuais e expiração).
 
-## 4. Matriz inicial de permissões
+## 4. Matriz de permissões
 
-Legenda: ● concedida pela função · ○ delegável (concessão individual com justificativa) · — não.
-
-| Permissão | Enf. CCIH | Téc. CCIH | Enf. CME | Téc. CME | Enf. Qual. | Téc. Qual. | ADM CME | ADM CCIH | Aprendiz |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `dashboard:view` (painel geral) | ● | ● | — | — | ● | ● | — | ● | ○ |
-| `indicators:view` | ● | ● | — | — | ● | ● | — | ● | ○ |
-| `reports:view` | ● | ● | ● | — | ● | ● | ● | ● | — |
-| `patient:view` (iniciais e prontuário) | ● | ● | — | — | — | — | — | ● | ○ |
-| `patient:view_identified` | ● | — | — | — | — | — | — | ● | — |
-| `patient:edit` (internações, dispositivos, evoluções CCIH) | ● | ● | — | — | — | — | — | ● | — |
-| `iras:view` / `iras:edit` | ● / ● | ● / ● | — | — | — | — | — | ● / ● | ○ / — |
-| `iras:decide` (confirmar/descartar IRAS) | ● | — | — | — | — | — | — | ● | — |
-| `surgery:view` / `surgery:edit` | ● / ● | ● / — | — | — | — | — | — | ● / ● | ○ / — |
-| `micro:view` · `atm:view` | ● | ● | — | — | — | — | — | ● | ○ |
-| `quality:view` | ● | ● | — | — | ● | ● | — | ● | ○ |
-| `quality:bundle:record` | (decisão §6) | ○ | — | — | ● | ● | — | ● | ○ |
-| `quality:audit:execute` | — | ○ | — | — | ● | ● | — | — | ○ |
-| `quality:audit:manage` | — | — | — | — | ● | — | — | — | — |
-| `quality:training:edit` | (decisão §6) | — | ○ | — | ● | — | ● | ● | — |
-| `quality:supplies:edit` | (decisão §6) | — | — | — | ● | — | — | ● | — |
-| `quality:configure` (modelos de bundle/checklists) | — | — | — | — | — | — | — | ● | — |
-| `nc:record` | ● | ● | ● | ● | ● | ● | ● | ● | ○ |
-| `cme:view` (painel e rastreabilidade, leitura) | ● | ● | ● | ● | (decisão §6) | — | ● | ● | ○ |
-| `cme:scan` (registrar etapas) | — | — | ● | ● | — | — | ● | — | ○ |
-| `cme:cycle:record` | — | — | ● | ● | — | — | ● | — | — |
-| `cme:test:record` | — | — | ● | ● | — | — | ● | — | — |
-| `cme:release` (liberar/reter/rejeitar) | — | — | ● | ○ | — | — | ● | — | — |
-| `cme:override` (exceção de sequência) | — | — | ● | — | — | — | ● | — | — |
-| `cme:configure` (equipamentos, caixas) | — | — | ● | — | — | — | ● | — | — |
-| `cme:stations:configure` | — | — | ● | — | — | — | ● | — | — |
-| `cme:parameters:edit` (parâmetros CME, política de liberação) | — | — | — | — | — | — | ● | — | — |
-| `ccih:parameters:edit` (parâmetros CCIH) | — | — | — | — | — | — | — | ● | — |
-| `config:targets:edit` (metas de indicadores) | — | — | — | — | — | — | — | ● | — |
-| `config:references:edit` / `validate` | — | — | — | — | — | — | — | ● | — |
-| `config:view` | ● | — | ● | — | ● | — | ● | ● | — |
-| `alerts:view` | ● | ● | ● | ● | ● | ● | ● | ● | ○ |
-| `alerts:manage` | ● | — | ● | — | ● | — | ● | ● | — |
-| `alerts:exception` | — | — | — | — | — | — | — | ● | — |
-| `export:aggregate` | ● | — | — | — | ● | — | ● | ● | ○ |
-| `users:manage:cme` / `audit:view:module` (CME) | — | — | — | — | — | — | ● | — | — |
-| `users:manage:ccih` / `audit:view:module` (CCIH) | — | — | — | — | — | — | — | ● | — |
-| `users:view` | — | — | — | — | — | — | ● | ● | — |
-
-Administrador do sistema: todas, exceto criar/alterar Administradores e a conta criadora. Administrador criador: todas.
-
-A liberação de carga continua submetida à política validada (§ Fase 5): nenhuma permissão contorna os requisitos.
+A matriz implementada (e mantida) está em [02-MATRIZ-DE-PERMISSOES.md](02-MATRIZ-DE-PERMISSOES.md), gerada a partir do código. Ajustes feitos durante a implementação em relação à proposta inicial: o Enfermeiro CME não recebe `config:view` (sem acesso às configurações globais; a leitura de configurações fica com o ADM CME) e os ADMs de módulo não recebem `users:view` (veem só as contas do próprio módulo).
 
 ## 5. Testes (todos automatizados, contra PostgreSQL real quando envolvem a API)
 
 Para cada função, testes positivos e **negativos por chamada direta à API**, cobrindo os 14 cenários pedidos: CCIH (enfermeiro e técnico) consulta CME sem alterar; CME executa sem acessar CCIH; técnico CME registra mas não libera sem concessão; Qualidade audita sem editar CME/registros de origem; ADM CME sem poderes de ADM CCIH e vice-versa; aprendiz só com o concedido e só dentro da validade; endpoints sem permissão; revogação encerrando sessões; negação registrada no log; ninguém altera o próprio acesso; só a conta criadora cria Administradores; operações críticas respeitando aprovação. Mais testes de interface (menus e ações por função) e E2E por perfil.
 
-## 6. Decisões necessárias antes da Fase 2
+## 6. Decisões aprovadas (10/10/2026)
 
-1. **Perfis atuais fora da lista** (Médico infectologista, Auditor, Gestor, Consulta): manter como perfis adicionais ou retirar e migrar usuários.
-2. **Enfermeiro CCIH e registros operacionais** de bundles, higiene das mãos, treinamentos e insumos: o pedido diz "visualizar bundles/auditorias/treinamentos" e também "gerenciar informações operacionais da CCIH".
-3. **Leitura de outras áreas pela Qualidade** para auditorias: leitura fixa da CME/vigilância na função, ou só por concessão individual quando a auditoria exigir.
-4. **Senha da conta criadora**: senha inicial temporária com troca obrigatória (proposto), ou definir já uma senha forte ao rodar o comando.
+1. **Perfis atuais fora da lista** (Médico infectologista, Auditor, Gestor, Consulta): **mantidos como perfis adicionais**; só o Administrador os atribui. O antigo perfil "CME" (que juntava execução, liberação e configuração) é convertido em **Enfermeiro CME**.
+2. **Enfermeiro CCIH registra** bundles, higiene das mãos, treinamentos e insumos (como hoje). Auditorias continuam com a Qualidade.
+3. **Leitura de outras áreas pela Qualidade** só por **concessão individual** (com justificativa e validade), quando a auditoria exigir.
+4. **Senha da conta criadora**: aceita apenas como **senha inicial temporária**, com troca obrigatória no primeiro acesso. A política de senha não é enfraquecida e nenhuma credencial vai para o repositório.
 
 ## 7. Ordem de execução
 
@@ -154,3 +109,14 @@ Para cada função, testes positivos e **negativos por chamada direta à API**, 
 | R4 | Validação completa (lint, tipos, testes, build, E2E por perfil e de acesso indevido) e matriz de permissões para manutenção |
 
 O plano da CME (F1 em diante) fica pausado até R4.
+
+## 8. Andamento
+
+| Etapa | Situação | Evidência |
+| --- | --- | --- |
+| R1 | Concluída | `packages/domain/src/permissions.ts`, `users.ts`; testes de domínio da matriz e da delegação |
+| R2 | Concluída | Migração 0009; rotas com permissões divididas; `routes/users.ts`; parâmetros e log por módulo; sessão com situação, validade e concessões; `admin:bootstrap`; `apps/api/test/rbac.test.ts` (14 cenários por chamada direta) |
+| R3 | Concluída | Gestão de usuários (cadastro completo, função obrigatória, Jovem Aprendiz, autorizações individuais, filtros, histórico), "Criar administrador do sistema" só para a conta criadora, menus/rotas/botões por permissão, CME em modo consulta, registro de NC pela CME |
+| R4 | Concluída | Lint, tipos, testes, build, E2E (incluindo `e2e/rbac.spec.ts` por perfil e acesso direto por URL) |
+
+**Limitações:** permissões alteradas valem na próxima requisição (as sessões do usuário são encerradas); a conexão de tempo real usa as permissões do momento em que abriu. O e-mail institucional é só cadastro (o sistema não envia e-mails). O log do ADM de módulo mostra os registros do módulo e seus parâmetros, não as alterações de contas (estas ficam no histórico de cada usuário). A validade do acesso é por data no fuso da instituição.

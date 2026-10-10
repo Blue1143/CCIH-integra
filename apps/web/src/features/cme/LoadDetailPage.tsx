@@ -71,13 +71,13 @@ function LoadDetailView() {
         {...(l.bowieDickApplies && l.equipmentBowieDick ? { equipmentBowieDick: l.equipmentBowieDick.result } : {})}
         release={l.evaluation} releaseLabel={l.evaluation.policyApplied ? `Pela política: ${POLICY_VERDICT[l.evaluation.status]}` : 'Sem política configurada'} items={l.itemList.length} hasImplant={l.hasImplant}
         actions={<div className="ig-row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {session.can('cme:edit') && !l.startedAt && !starting ? <Button variant="primary" onClick={() => setStarting(true)} disabled={!l.itemList.length}>Iniciar ciclo</Button> : null}
-          {session.can('cme:edit') && l.startedAt && !l.endedAt && !finishing ? <Button variant="primary" onClick={() => setFinishing(true)}>Encerrar ciclo</Button> : null}
+          {session.can('cme:cycle:record') && !l.startedAt && !starting ? <Button variant="primary" onClick={() => setStarting(true)} disabled={!l.itemList.length}>Iniciar ciclo</Button> : null}
+          {session.can('cme:cycle:record') && l.startedAt && !l.endedAt && !finishing ? <Button variant="primary" onClick={() => setFinishing(true)}>Encerrar ciclo</Button> : null}
           {session.can('cme:release') && !deciding ? next.map((to) => (
             <Button key={to} variant={to === 'liberada' ? 'primary' : 'secondary'} onClick={() => setDeciding(to)}
               disabled={to === 'liberada' && (!l.evaluation.policyApplied || l.evaluation.status !== 'liberada')}>{decisionLabel(l.status, to)}</Button>
           )) : null}
-          {session.can('cme:edit') && (l.status === 'reprocessamento' || l.status === 'rejeitada') && !l.reprocessedIntoId ? <Link className="ig-btn" to={`/cme?reprocessar=${l.id}`}>Registrar reprocessamento</Link> : null}
+          {session.can('cme:cycle:record') && (l.status === 'reprocessamento' || l.status === 'rejeitada') && !l.reprocessedIntoId ? <Link className="ig-btn" to={`/cme?reprocessar=${l.id}`}>Registrar reprocessamento</Link> : null}
         </div>} />
       {l.bowieDickApplies && !l.equipmentBowieDick ? <AlertBanner tone="warn" title="Bowie-Dick do dia não registrado antes deste ciclo">Registre o teste do equipamento em <Link to="/cme/bowie-dick">Bowie-Dick</Link>.</AlertBanner> : null}
       {l.policy ? <p className="ig-small ig-muted">Política de liberação v{l.policy.version}: exige {l.policy.requiredLoadTests.map((t) => TEST_TYPE_LABEL[t]).join(', ')}{l.policy.requireDailyBowieDick ? ', Bowie-Dick diário (vapor pré-vácuo)' : ''}{l.policy.holdImplantsUntilBiological ? ', implantáveis só com IB negativo' : ''}.</p> : <AlertBanner tone="warn" title="Sem política de liberação">Configure a política em Administração para que cargas possam ser liberadas.</AlertBanner>}
@@ -92,9 +92,9 @@ function LoadDetailView() {
       {deciding ? <DecisionForm load={l} to={deciding} onDone={() => setDeciding(null)} /> : null}
 
       <Card title="Testes e indicadores" subtitle="Leituras e correções são novas versões: o registro anterior continua visível." headingLevel={2}
-        actions={session.can('cme:edit') && !testing ? <Button icon="plus" onClick={() => setTesting(true)}>Registrar teste</Button> : null}>
+        actions={session.can('cme:test:record') && !testing ? <Button icon="plus" onClick={() => setTesting(true)}>Registrar teste</Button> : null}>
         {testing ? <TestForm load={l} onDone={() => setTesting(false)} /> : null}
-        <TestTable tests={l.tests} canEdit={session.can('cme:edit')} />
+        <TestTable tests={l.tests} canEdit={session.can('cme:test:record')} />
         {l.equipmentBowieDick ? <p className="ig-small ig-muted">Bowie-Dick do equipamento considerado: {TEST_RESULT_LABEL[l.equipmentBowieDick.result]} em {formatDate(l.equipmentBowieDick.performedAt, tz)}.</p> : null}
       </Card>
 

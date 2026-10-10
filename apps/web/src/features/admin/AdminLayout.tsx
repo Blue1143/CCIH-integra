@@ -3,20 +3,20 @@ import type { Permission } from '@ccih/domain';
 import { SubNav } from '@ccih/ui';
 import { useSession } from '../auth/session';
 
-export const ADMIN_SECTIONS: Array<{ key: string; label: string; path: string; permission: Permission }> = [
-  { key: 'metas', label: 'Metas', path: '/admin/metas', permission: 'config:view' },
-  { key: 'parametros', label: 'Parâmetros', path: '/admin/parametros', permission: 'config:view' },
-  { key: 'referencias', label: 'Referências', path: '/admin/referencias', permission: 'config:view' },
-  { key: 'cme', label: 'Política da CME', path: '/admin/cme', permission: 'config:view' },
-  { key: 'setores', label: 'Unidades e setores', path: '/admin/setores', permission: 'config:view' },
-  { key: 'usuarios', label: 'Usuários e perfis', path: '/admin/usuarios', permission: 'users:view' },
-  { key: 'auditoria', label: 'Log de auditoria', path: '/admin/auditoria', permission: 'audit:view' },
+export const ADMIN_SECTIONS: Array<{ key: string; label: string; path: string; permissions: Permission[] }> = [
+  { key: 'metas', label: 'Metas', path: '/admin/metas', permissions: ['config:view'] },
+  { key: 'parametros', label: 'Parâmetros', path: '/admin/parametros', permissions: ['config:view'] },
+  { key: 'referencias', label: 'Referências', path: '/admin/referencias', permissions: ['config:view'] },
+  { key: 'cme', label: 'Política da CME', path: '/admin/cme', permissions: ['config:view'] },
+  { key: 'setores', label: 'Unidades e setores', path: '/admin/setores', permissions: ['config:view'] },
+  { key: 'usuarios', label: 'Gestão de usuários', path: '/admin/usuarios', permissions: ['users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme'] },
+  { key: 'auditoria', label: 'Log de auditoria', path: '/admin/auditoria', permissions: ['audit:view', 'audit:view:module'] },
 ];
 
 export function AdminLayout() {
   const session = useSession();
   const { pathname } = useLocation();
-  const sections = ADMIN_SECTIONS.filter((s) => session.can(s.permission));
+  const sections = ADMIN_SECTIONS.filter((s) => session.can(...s.permissions));
   return (
     <div className="page">
       <header className="page-head">
@@ -37,6 +37,6 @@ export function AdminLayout() {
 
 export function AdminIndex() {
   const session = useSession();
-  const first = ADMIN_SECTIONS.find((s) => session.can(s.permission));
+  const first = ADMIN_SECTIONS.find((s) => session.can(...s.permissions));
   return first ? <Navigate to={first.path} replace /> : null;
 }

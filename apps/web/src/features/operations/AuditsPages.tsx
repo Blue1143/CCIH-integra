@@ -53,7 +53,7 @@ function AuditList() {
   ];
   return (
     <>
-      {session.can('quality:edit') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Planejar auditoria</Button></div> : null}
+      {session.can('quality:audit:manage') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Planejar auditoria</Button></div> : null}
       {creating ? <AuditCreateForm onDone={(id) => { setCreating(false); if (id) navigate(`/auditorias/${id}`); }} /> : null}
       <DataTable caption="Auditorias" columns={cols} rows={audits.data?.audits ?? []} rowKey={(a) => a.id} searchable state={audits.isPending ? 'loading' : audits.isError ? 'error' : 'ready'} onRetry={() => void audits.refetch()} pageSize={20} />
     </>
@@ -102,7 +102,7 @@ function AuditDetail() {
   if (q.isPending) return <div className="page"><LoadingState /></div>;
   if (q.isError) return <div className="page"><Card>{q.error instanceof ApiError && q.error.status === 404 ? <EmptyState title="Auditoria não encontrada" /> : <ErrorState onRetry={() => void q.refetch()} />}</Card></div>;
   const a = q.data;
-  const canEdit = session.can('quality:edit');
+  const canEdit = session.can('quality:audit:manage');
   const closed = a.status === 'encerrada' || a.status === 'cancelada';
   return (
     <div className="page">
@@ -188,7 +188,7 @@ function NcList() {
   const [creating, setCreating] = useState(false);
   return (
     <>
-      {session.can('quality:edit') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Registrar não conformidade</Button></div> : null}
+      {session.can('nc:record', 'quality:audit:manage') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Registrar não conformidade</Button></div> : null}
       {creating ? <NcCreateForm auditId={null} sectorId={null} onDone={(id) => { setCreating(false); if (id) navigate(`/auditorias/nao-conformidades/${id}`); }} /> : null}
       <div className="filters">
         <div className="field">
@@ -205,11 +205,12 @@ function NcList() {
   );
 }
 
-function NcCreateForm({ auditId, sectorId, onDone }: { auditId: string | null; sectorId: string | null; onDone: (id?: string) => void }) {
+/** Also used outside Quality (CME, apprentice): registering is allowed with nc:record; treating and closing stay with Quality. */
+export function NcCreateForm({ auditId, sectorId, origin, onDone }: { auditId: string | null; sectorId: string | null; origin?: NcOrigin; onDone: (id?: string) => void }) {
   const ops = useOps()!;
   const org = useOrg();
   const tz = useTimeZone();
-  const [d, setD] = useState({ origin: (auditId ? 'auditoria' : 'outro') as NcOrigin, severity: 'media' as NcSeverity, sectorId: sectorId ?? '', description: '', detectedOn: todayIn(tz), justification: '' });
+  const [d, setD] = useState({ origin: (auditId ? 'auditoria' : origin ?? 'outro') as NcOrigin, severity: 'media' as NcSeverity, sectorId: sectorId ?? '', description: '', detectedOn: todayIn(tz), justification: '' });
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const m = useOpsMutation(() => ops.createNonconformity({ auditId, sectorId: d.sectorId || null, origin: d.origin, severity: d.severity, description: d.description.trim(), detectedOn: d.detectedOn, justification: d.justification.trim() }));
   const submit = () => {
@@ -246,7 +247,9 @@ function NcDetail() {
   if (q.isPending) return <div className="page"><LoadingState /></div>;
   if (q.isError) return <div className="page"><Card>{q.error instanceof ApiError && q.error.status === 404 ? <EmptyState title="Não conformidade não encontrada" /> : <ErrorState onRetry={() => void q.refetch()} />}</Card></div>;
   const n = q.data;
-  const canEdit = session.can('quality:edit');
+  const canEdit = session.can('quality:audit:manage');
+  // Progress of a 5W2H action is recorded by whoever executes the audit; treating and closing is Quality's.
+  const canExecute = session.can('quality:audit:execute', 'quality:audit:manage');
   const closed = n.status === 'encerrada' || n.status === 'cancelada';
   const actionCols: Column<ActionPlanDto>[] = [
     { key: 'what', label: FIVE_W_TWO_H.what, render: (x) => <span><b>{x.what}</b><br /><span className="ig-small ig-muted">{FIVE_W_TWO_H.why}: {x.why}</span></span>, value: (x) => x.what },
@@ -255,7 +258,7 @@ function NcDetail() {
     { key: 'dueOn', label: FIVE_W_TWO_H.when, value: (x) => x.dueOn, render: (x) => <span>{formatDate(x.dueOn)}{x.overdue ? <StatusBadge status="crit">Atrasada</StatusBadge> : null}</span> },
     { key: 'how', label: FIVE_W_TWO_H.how, render: (x) => <span>{x.how}{x.howMuch ? <span className="ig-small ig-muted"> · {FIVE_W_TWO_H.howMuch}: {x.howMuch}</span> : null}</span>, value: (x) => x.how },
     { key: 'status', label: 'Situação', value: (x) => x.status, render: (x) => <StatusBadge status={ACTION_TONE[x.status]}>{ACTION_STATUS_LABEL[x.status]}{x.completedOn ? ` em ${formatDate(x.completedOn)}` : ''}</StatusBadge> },
-    ...(canEdit && !closed ? [{ key: 'act', label: 'Ação', sortable: false, exportable: false, render: (x: ActionPlanDto) => (x.status === 'pendente' || x.status === 'em_andamento' ? <Button size="sm" onClick={() => setAction({ status: x })} aria-label={`Atualizar ação ${x.what}`}>Atualizar</Button> : null) } as Column<ActionPlanDto>] : []),
+    ...(canExecute && !closed ? [{ key: 'act', label: 'Ação', sortable: false, exportable: false, render: (x: ActionPlanDto) => (x.status === 'pendente' || x.status === 'em_andamento' ? <Button size="sm" onClick={() => setAction({ status: x })} aria-label={`Atualizar ação ${x.what}`}>Atualizar</Button> : null) } as Column<ActionPlanDto>] : []),
   ];
   return (
     <div className="page">

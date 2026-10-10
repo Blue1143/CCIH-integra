@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'kysely';
 import { DEFAULT_ROLE_PERMISSIONS } from '@ccih/domain';
 import { verifyAuditChain } from '../src/audit/audit';
-import { ORIGIN, TEST_PASSWORD, login, setupTestApp, teardown, type TestContext } from './helpers';
+import { ORIGIN, TEST_PASSWORD, login, setupTestApp, teardown, type TestContext, accessBody } from './helpers';
 
 let ctx: TestContext;
 beforeAll(async () => {
@@ -200,12 +200,13 @@ describe('users and profiles', () => {
     const consulta = await login(ctx.app, 'consulta');
     const users = (await ctx.app.inject({ url: '/api/users', headers: admin.headers })).json().users;
     const target = users.find((u: { login: string }) => u.login === 'consulta');
-    const res = await ctx.app.inject({ method: 'PATCH', url: `/api/users/${target.id}`, headers: admin.headers, payload: { roles: ['consulta', 'gestor'], scopeAll: true, sectorIds: [], active: true, rowVersion: target.rowVersion, justification: 'Ajuste aprovado em reunião da CCIH' } });
+    const res = await ctx.app.inject({ method: 'PUT', url: `/api/users/${target.id}`, headers: admin.headers, payload: accessBody({ displayName: target.displayName, functionRole: 'consulta', extraRoles: ['gestor'], rowVersion: target.rowVersion }) });
     expect(res.statusCode).toBe(200);
     expect((await ctx.app.inject({ url: '/api/institution', headers: consulta.headers })).statusCode).toBe(401);
     const self = users.find((u: { login: string }) => u.login === 'admin');
-    const lock = await ctx.app.inject({ method: 'PATCH', url: `/api/users/${self.id}`, headers: admin.headers, payload: { roles: ['consulta'], scopeAll: true, sectorIds: [], active: true, rowVersion: self.rowVersion, justification: 'Ajuste aprovado em reunião da CCIH' } });
-    expect(lock.statusCode).toBe(400);
+    // Nobody changes their own access, not even an administrator.
+    const lock = await ctx.app.inject({ method: 'PUT', url: `/api/users/${self.id}`, headers: admin.headers, payload: accessBody({ displayName: self.displayName, functionRole: 'admin', rowVersion: self.rowVersion }) });
+    expect(lock.statusCode).toBe(403);
   });
 });
 

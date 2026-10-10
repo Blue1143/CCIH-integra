@@ -37,3 +37,9 @@ const BY_ENTITY: Record<string, { topic: RealtimeTopic; permission: Permission }
 };
 
 export const topicOfEntity = (entity: string) => BY_ENTITY[entity] ?? null;
+
+/** Audited entities that belong to a module (for the module administrators' log). */
+export function auditEntitiesOf(modules: Array<'cme' | 'ccih'>): string[] {
+  const topics: RealtimeTopic[] = modules.map((m) => (m === 'cme' ? 'cme' : 'clinico'));
+  return Object.entries(BY_ENTITY).filter(([, t]) => topics.includes(t.topic)).map(([e]) => e);
+}

@@ -43,7 +43,7 @@ function Trace() {
   return (
     <div className="page">
       <PageHeader title="Rastreabilidade" subtitle="Do pacote ao ciclo e ao paciente, e do paciente aos pacotes usados. Pesquise pela etiqueta do pacote, pelo código da carga, pelo código da caixa ou pelo prontuário."
-        actions={session.can('cme:edit') && !loose ? <Button onClick={() => setLoose(true)}>Registrar uso sem cirurgia</Button> : null} />
+        actions={session.can('cme:cycle:record') && !loose ? <Button onClick={() => setLoose(true)}>Registrar uso sem cirurgia</Button> : null} />
       {loose ? <LooseUseForm onDone={(r) => { setLoose(false); setWithoutExit(!!r?.withoutExit); }} /> : null}
       {withoutExit ? <AlertBanner tone="warn" title="Não conformidade aberta">Uso registrado. O pacote não tinha saída registrada do CME: foi aberta uma não conformidade e você recebeu uma notificação.</AlertBanner> : null}
       <form className="filters" role="search" onSubmit={(e) => { e.preventDefault(); f.set('q', term.trim()); }}>

@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import { isPermission, type Permission } from '@ccih/domain';
+import { isPermission, todayIn, type Permission } from '@ccih/domain';
 import type { DB } from '../db/types';
 import type { Env } from '../env';
 import { audit, type AuditActor } from '../audit/audit';
@@ -27,6 +27,8 @@ export interface AuthContext {
   idleExpiresAt: Date;
   /** Temporary or expired password: only the password change is allowed until it is replaced. */
   mustChangePassword: boolean;
+  /** The creator account: the only one that creates or changes system administrators. */
+  isFounder: boolean;
 }
 
 declare module 'fastify' {
@@ -55,25 +57,36 @@ export function sessionLoader(db: Kysely<DB>, env: Env) {
     const row = await db
       .selectFrom('session')
       .innerJoin('app_user', 'app_user.id', 'session.user_id')
-      .select(['session.id as sessionId', 'session.csrf_hash', 'session.last_seen_at', 'session.expires_at', 'app_user.id as userId', 'app_user.login', 'app_user.display_name', 'app_user.institution_id', 'app_user.active', 'app_user.scope_all', 'app_user.must_change_password', 'app_user.password_changed_at'])
+      .innerJoin('institution', 'institution.id', 'app_user.institution_id')
+      .select([
+        'session.id as sessionId', 'session.csrf_hash', 'session.last_seen_at', 'session.expires_at', 'app_user.id as userId', 'app_user.login', 'app_user.display_name',
+        'app_user.institution_id', 'app_user.active', 'app_user.status', 'app_user.valid_from', 'app_user.valid_until', 'app_user.is_founder', 'app_user.scope_all',
+        'app_user.must_change_password', 'app_user.password_changed_at', 'institution.timezone',
+      ])
       .where('session.token_hash', '=', sha256(token))
       .where('session.revoked_at', 'is', null)
       .executeTakeFirst();
     if (!row) return;
     const now = Date.now();
+    const today = todayIn(row.timezone);
     const idleExpired = now - row.last_seen_at.getTime() > idleMs;
     const absoluteExpired = now > row.expires_at.getTime();
-    if (idleExpired || absoluteExpired || !row.active) {
-      const reason = !row.active ? 'usuario_inativo' : idleExpired ? 'inatividade' : 'tempo_maximo';
+    // Account not active (pending, suspended, deactivated) or outside its validity window: the session ends.
+    const outside = (row.valid_from != null && today < row.valid_from) || (row.valid_until != null && today > row.valid_until);
+    if (idleExpired || absoluteExpired || !row.active || row.status !== 'ativo' || outside) {
+      const reason = row.status !== 'ativo' || !row.active ? 'usuario_inativo' : outside ? 'fora_da_validade' : idleExpired ? 'inatividade' : 'tempo_maximo';
       await db.updateTable('session').set({ revoked_at: new Date(), revoked_reason: reason }).where('id', '=', row.sessionId).execute();
       await audit(db, { institutionId: row.institution_id, userId: row.userId, login: row.login, ip: req.ip, userAgent: null }, { action: 'session_expired', entity: 'session', entityId: row.sessionId, context: { reason } });
       return;
     }
-    const [roles, scopes] = await Promise.all([
+    const [roles, scopes, grants] = await Promise.all([
       db.selectFrom('user_role').innerJoin('role', (j) => j.onRef('role.code', '=', 'user_role.role_code').onRef('role.institution_id', '=', 'user_role.institution_id')).select(['role.code', 'role.permissions']).where('user_role.user_id', '=', row.userId).execute(),
       row.scope_all ? Promise.resolve([]) : db.selectFrom('user_scope').select('sector_id').where('user_id', '=', row.userId).execute(),
+      // Individual grants (express authorization), valid today.
+      db.selectFrom('user_permission').select('permission').where('user_id', '=', row.userId).where('revoked_at', 'is', null)
+        .where((eb) => eb.or([eb('valid_until', 'is', null), eb('valid_until', '>=', today)])).execute(),
     ]);
-    const permissions = [...new Set(roles.flatMap((r) => r.permissions))].filter(isPermission);
+    const permissions = [...new Set([...roles.flatMap((r) => r.permissions), ...grants.map((g) => g.permission)])].filter(isPermission);
     // Touch at most once a minute to keep writes low.
     let lastSeen = row.last_seen_at;
     if (now - lastSeen.getTime() > 60_000) {
@@ -92,6 +105,7 @@ export function sessionLoader(db: Kysely<DB>, env: Env) {
       scope: row.scope_all ? undefined : scopes.map((s) => s.sector_id),
       expiresAt: row.expires_at,
       idleExpiresAt: new Date(lastSeen.getTime() + idleMs),
+      isFounder: row.is_founder,
       mustChangePassword: row.must_change_password || (env.PASSWORD_MAX_AGE_DAYS > 0 && now - row.password_changed_at.getTime() > env.PASSWORD_MAX_AGE_DAYS * 86_400_000),
     };
   };

@@ -68,13 +68,13 @@ function BundleAudits() {
     { key: 'result', label: 'Resultado', value: (a) => a.result, render: (a) => (a.voided ? <StatusBadge status="neutral">Anulada</StatusBadge> : <StatusBadge status={a.result === 'conforme' ? 'ok' : 'crit'}>{a.result === 'conforme' ? 'Conforme' : `Não conforme (${a.answers.filter((x) => x.answer === 'nao_conforme').length})`}</StatusBadge>) },
     { key: 'items', label: 'Itens não conformes', sortable: false, render: (a) => a.answers.filter((x) => x.answer === 'nao_conforme').map((x) => x.label).join('; ') || '—' },
     { key: 'auditor', label: 'Auditor', value: (a) => a.auditorName, render: (a) => <span>{a.auditorName} <DemoTag origin={a.origin} /></span> },
-    ...(session.can('quality:edit') ? [{ key: 'act', label: 'Ação', sortable: false, exportable: false, render: (a: BundleAuditDto) => (a.voided ? <span className="ig-small ig-muted">{a.voidReason}</span> : <Button size="sm" variant="ghost" onClick={() => setVoiding(a)} aria-label={`Anular auditoria de ${formatDate(a.auditedAt, tz)}`}>Anular</Button>) } as Column<BundleAuditDto>] : []),
+    ...(session.can('quality:bundle:record') ? [{ key: 'act', label: 'Ação', sortable: false, exportable: false, render: (a: BundleAuditDto) => (a.voided ? <span className="ig-small ig-muted">{a.voidReason}</span> : <Button size="sm" variant="ghost" onClick={() => setVoiding(a)} aria-label={`Anular auditoria de ${formatDate(a.auditedAt, tz)}`}>Anular</Button>) } as Column<BundleAuditDto>] : []),
   ];
 
   return (
     <>
       {saved ? <FormMessage tone="success">{saved}</FormMessage> : null}
-      {session.can('quality:edit') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => { setCreating(true); setSaved(null); }}>Nova auditoria de bundle</Button></div> : null}
+      {session.can('quality:bundle:record') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => { setCreating(true); setSaved(null); }}>Nova auditoria de bundle</Button></div> : null}
       {creating && templates.data ? <AuditForm templates={templates.data.templates.filter((t) => t.active)} onDone={(msg) => { setCreating(false); if (msg) setSaved(msg); }} /> : null}
       <div className="filters">
         <div className="field"><label htmlFor="b-de">De</label><input id="b-de" type="date" className="select" value={f.get('de')} onChange={(e) => f.set('de', e.target.value)} /></div>
@@ -173,11 +173,11 @@ function HandHygiene() {
     { key: 'actions', label: 'Ações', align: 'right' },
     { key: 'pct', label: 'Adesão', align: 'right', value: (h) => pct(h.actions, h.opportunities), render: (h) => (h.voided ? <StatusBadge status="neutral">Anulada</StatusBadge> : `${formatNumber(pct(h.actions, h.opportunities))}%`) },
     { key: 'observer', label: 'Observador', render: (h) => <span>{h.observerName} <DemoTag origin={h.origin} /></span>, value: (h) => h.observerName },
-    ...(session.can('quality:edit') ? [{ key: 'act', label: 'Ação', sortable: false, exportable: false, render: (h: HandHygieneDto) => (h.voided ? <span className="ig-small ig-muted">{h.voidReason}</span> : <Button size="sm" variant="ghost" onClick={() => setVoiding(h)}>Anular</Button>) } as Column<HandHygieneDto>] : []),
+    ...(session.can('quality:bundle:record') ? [{ key: 'act', label: 'Ação', sortable: false, exportable: false, render: (h: HandHygieneDto) => (h.voided ? <span className="ig-small ig-muted">{h.voidReason}</span> : <Button size="sm" variant="ghost" onClick={() => setVoiding(h)}>Anular</Button>) } as Column<HandHygieneDto>] : []),
   ];
   return (
     <>
-      {session.can('quality:edit') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Nova observação</Button></div> : null}
+      {session.can('quality:bundle:record') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Nova observação</Button></div> : null}
       {creating ? <HandHygieneForm onDone={() => setCreating(false)} /> : null}
       <div className="filters">
         <div className="field"><label htmlFor="h-de">De</label><input id="h-de" type="date" className="select" value={f.get('de')} onChange={(e) => f.set('de', e.target.value)} /></div>

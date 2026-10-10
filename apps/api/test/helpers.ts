@@ -60,3 +60,11 @@ export async function login(app: FastifyInstance, login: string, password = TEST
   const csrf = res.json<{ csrfToken: string }>().csrfToken;
   return { cookie: cookies, csrf, headers: { cookie: cookies, 'x-csrf-token': csrf, origin: ORIGIN } };
 }
+
+/** Body of a user access change (creation adds the login); tests override what they exercise. */
+export function accessBody(over: Record<string, unknown> = {}) {
+  return {
+    displayName: 'Usuário de teste', email: null, registration: null, category: null, functionRole: 'consulta', extraRoles: [], scopeAll: true, sectorIds: [],
+    status: 'ativo', statusReason: null, validFrom: null, validUntil: null, supervisorId: null, grants: [], justification: 'Ajuste aprovado em reunião da CCIH', ...over,
+  };
+}

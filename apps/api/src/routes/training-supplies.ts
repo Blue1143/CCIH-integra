@@ -93,7 +93,8 @@ export async function loadSupplies(db: Kysely<DB>, institutionId: string, today:
 
 export async function trainingSupplyRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> }) {
   const view = { preHandler: requirePermission(db, 'quality:view') };
-  const edit = { preHandler: requirePermission(db, 'quality:edit') };
+  const training = { preHandler: requirePermission(db, 'quality:training:edit') };
+  const supplies = { preHandler: requirePermission(db, 'quality:supplies:edit') };
   const configure = { preHandler: requirePermission(db, 'quality:configure') };
 
   /* ---------- Staff (professionals with job role and sector) ---------- */
@@ -189,7 +190,7 @@ export async function trainingSupplyRoutes(app: FastifyInstance, { db }: { db: K
     });
   });
 
-  app.post<{ Params: { id: string } }>('/trainings/:id/sessions', edit, async (req, reply) => {
+  app.post<{ Params: { id: string } }>('/trainings/:id/sessions', training, async (req, reply) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(SessionCreate, req.body);
@@ -245,7 +246,7 @@ export async function trainingSupplyRoutes(app: FastifyInstance, { db }: { db: K
   });
 
   /** Ledger entry: never edited; stock cannot go below zero; consumption is attributed to a sector. */
-  app.post<{ Params: { id: string } }>('/supplies/:id/movements', edit, async (req, reply) => {
+  app.post<{ Params: { id: string } }>('/supplies/:id/movements', supplies, async (req, reply) => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
     const b = parse(MovementCreate, req.body);

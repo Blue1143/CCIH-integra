@@ -24,6 +24,7 @@ import { cmeRoutes } from './routes/cme';
 import { cmeFlowRoutes } from './routes/cme-flow';
 import { notificationRoutes } from './routes/notifications';
 import { realtimeRoutes } from './routes/realtime';
+import { userRoutes } from './routes/users';
 import { EventHub } from './realtime/hub';
 
 export interface AppOptions {
@@ -95,6 +96,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       await api.register(dataRoutes, { db });
       await api.register(configRoutes, { db });
       await api.register(adminRoutes, { db });
+      await api.register(userRoutes, { db });
       await api.register(orgRoutes, { db });
       await api.register(patientRoutes, { db, cipher: FieldCipher.fromEnv(env.FIELD_ENCRYPTION_KEY) });
       await api.register(irasRoutes, { db });

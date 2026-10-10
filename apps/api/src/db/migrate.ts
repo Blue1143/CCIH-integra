@@ -8,6 +8,7 @@ import * as m0005 from './migrations/0005_cme_flow';
 import * as m0006 from './migrations/0006_cme_exit_nc';
 import * as m0007 from './migrations/0007_alerts_v2';
 import * as m0008 from './migrations/0008_event_outbox';
+import * as m0009 from './migrations/0009_rbac_functions';
 
 /** Migrations are registered statically (works the same under tsx, tests and the bundled build). */
 const MIGRATIONS: Record<string, Migration> = {
@@ -19,6 +20,7 @@ const MIGRATIONS: Record<string, Migration> = {
   '0006_cme_exit_nc': m0006,
   '0007_alerts_v2': m0007,
   '0008_event_outbox': m0008,
+  '0009_rbac_functions': m0009,
 };
 
 export const APPEND_ONLY_TABLES = [

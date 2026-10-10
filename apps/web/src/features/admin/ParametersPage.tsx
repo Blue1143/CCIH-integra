@@ -28,7 +28,9 @@ export function ParametersPage() {
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [confirm, setConfirm] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
-  const canEdit = session.writable && session.can('config:rules:edit');
+  // A module administrator edits only its module's parameters (cme.* for the CME, the others for the CCIH); the API checks the same.
+  const canEditSpec = (spec: RuleParameterSpec) => session.writable && session.can('config:rules:edit', spec.group === 'cme' ? 'cme:parameters:edit' : 'ccih:parameters:edit');
+  const canEdit = session.writable && session.can('config:rules:edit', 'cme:parameters:edit', 'ccih:parameters:edit');
   const save = useAdminMutation((d: { key: string; value: unknown; referenceId: string | null; rowVersion: number | null; justification: string }) => admin!.saveRule(d.key, d));
 
   if (institution.isPending) return <LoadingState />;
@@ -74,12 +76,12 @@ export function ParametersPage() {
     { key: 'value', label: 'Valor', sortable: false, render: (s) => { const p = current.get(s.key); return p ? <span className="ig-row" style={{ gap: 6 }}>{display(s, p.value)}<ProvenanceTag kind="parametro">configurável</ProvenanceTag></span> : <span className="ig-muted">Não configurado — a regra não é aplicada</span>; } },
     { key: 'reference', label: 'Referência', value: (s) => refOf(current.get(s.key)?.referenceId)?.title ?? '', render: (s) => { const r = refOf(current.get(s.key)?.referenceId); return <span className="ig-row" style={{ gap: 6 }}>{r?.title ?? 'Sem referência'}{requiresValidation(r) ? <ProvenanceTag kind="requer_validacao" /> : null}</span>; } },
     { key: 'approved', label: 'Última alteração', hidden: !versions.data, value: (s) => versions.data?.rules.find((r) => r.key === s.key)?.approved_by_name ?? '', render: (s) => { const v = versions.data?.rules.find((r) => r.key === s.key); return v?.approved_by_name ? `${v.approved_by_name} · ${formatDate(v.updated_at, config.timezone)}` : 'Valor inicial (demonstração)'; } },
-    ...(canEdit ? [{ key: 'action', label: 'Ação', sortable: false, exportable: false, render: (s: RuleParameterSpec) => <Button size="sm" onClick={() => open(s)} aria-label={`Editar ${s.label}`}>Editar</Button> } as Column<RuleParameterSpec>] : []),
+    ...(canEdit ? [{ key: 'action', label: 'Ação', sortable: false, exportable: false, render: (s: RuleParameterSpec) => (canEditSpec(s) ? <Button size="sm" onClick={() => open(s)} aria-label={`Editar ${s.label}`}>Editar</Button> : <span className="ig-small ig-muted">Outro módulo</span>) } as Column<RuleParameterSpec>] : []),
   ];
 
   return (
     <div className="ig-stack" style={{ gap: 16 }}>
-      <EditAvailability permissionLabel="Editar parâmetros de regras institucionais" allowed={session.can('config:rules:edit')} />
+      <EditAvailability permissionLabel="Editar parâmetros de regras institucionais" allowed={canEdit} />
       {saved ? <FormMessage tone="success">{saved}</FormMessage> : null}
       {spec ? (
         <Card title={spec.label} subtitle={`Grupo ${RULE_GROUP_LABEL[spec.group]}. Limites de digitação: ${spec.min}–${spec.max} ${spec.unit} (checagem de entrada, não recomendação clínica).`}>

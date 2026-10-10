@@ -57,7 +57,7 @@ export const NAVIGATION: NavGroup[] = [
       { path: '/indicadores', permissions: ['indicators:view'], label: 'Indicadores', phase: null, summary: 'Catálogo de indicadores com fórmula, fonte e meta.' },
       { path: '/relatorios', permissions: ['reports:view'], label: 'Relatórios', phase: 7, summary: 'Relatórios com filtros, impressão, PDF e CSV.' },
       { path: '/alertas', permissions: ['alerts:view'], label: 'Alertas', phase: null, summary: 'Central de alertas com prioridade, responsável e controle de excesso de alertas.' },
-      { path: '/admin', permissions: ['config:view', 'users:view', 'audit:view'], label: 'Administração', phase: null, summary: 'Metas, parâmetros, referências, política da CME, usuários, perfis e log de auditoria.' },
+      { path: '/admin', permissions: ['config:view', 'users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme', 'audit:view', 'audit:view:module'], label: 'Administração', phase: null, summary: 'Metas, parâmetros, referências, política da CME, usuários, perfis e log de auditoria.' },
     ],
   },
 ];

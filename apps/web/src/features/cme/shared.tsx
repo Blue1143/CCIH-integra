@@ -29,8 +29,24 @@ export function useCmeMutation<I, O = unknown>(run: (input: I) => Promise<O>) {
   return useAdminMutation<I, O>(run, CME_KEYS);
 }
 
+/** CME actions that change records: without any of them the user only consults the CME. */
+const CME_WRITE = ['cme:scan', 'cme:cycle:record', 'cme:test:record', 'cme:release', 'cme:configure', 'cme:stations:configure'] as const;
+
 export function RequireCme({ title, children }: { title: string; children: ReactNode }) {
-  if (useCme()) return <>{children}</>;
+  const session = useSession();
+  const readOnly = session.status === 'authenticated' && !session.can(...CME_WRITE);
+  if (useCme()) {
+    return (
+      <>
+        {readOnly ? (
+          <div className="page" style={{ paddingBottom: 0 }}>
+            <AlertBanner tone="info" title="Modo consulta">Seu perfil consulta a CME e a rastreabilidade, mas não altera registros, ciclos, testes ou cargas. A API recusa qualquer alteração, mesmo por acesso direto.</AlertBanner>
+          </div>
+        ) : null}
+        {children}
+      </>
+    );
+  }
   return (
     <div className="page">
       <PageHeader title={title} />
@@ -43,8 +59,9 @@ export function RequireCme({ title, children }: { title: string; children: React
 
 export function CmeNav() {
   const { pathname } = useLocation();
+  const session = useSession();
   const items = [
-    { key: 'estacao', label: 'Estação de leitura', href: '/cme/estacao' },
+    ...(session.status !== 'authenticated' || session.can('cme:scan') ? [{ key: 'estacao', label: 'Estação de leitura', href: '/cme/estacao' }] : []),
     { key: 'processos', label: 'Processos', href: '/cme/processos' },
     { key: 'cargas', label: 'Cargas e liberação', href: '/cme' },
     { key: 'bd', label: 'Bowie-Dick', href: '/cme/bowie-dick' },

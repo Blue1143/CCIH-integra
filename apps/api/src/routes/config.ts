@@ -5,7 +5,7 @@ import { INDICATORS, TEST_TYPE_LABEL, getRuleSpec, todayIn, validateRuleValue } 
 import type { DB } from '../db/types';
 import { audit } from '../audit/audit';
 import { actorOf, requireAuth, requirePermission } from '../http/auth';
-import { HttpError, conflict, notFound, parse } from '../http/errors';
+import { HttpError, conflict, forbidden, notFound, parse } from '../http/errors';
 
 const Uuid = z.string().uuid();
 const RowVersion = z.number().int().min(1);
@@ -100,10 +100,16 @@ export async function configRoutes(app: FastifyInstance, { db }: { db: Kysely<DB
   });
 
   /* ---------- Rule parameters ---------- */
-  app.put<{ Params: { key: string } }>('/config/rules/:key', { preHandler: requirePermission(db, 'config:rules:edit') }, async (req) => {
+  app.put<{ Params: { key: string } }>('/config/rules/:key', { preHandler: requirePermission(db, 'config:rules:edit', 'cme:parameters:edit', 'ccih:parameters:edit') }, async (req) => {
     const auth = requireAuth(req);
     const spec = getRuleSpec(req.params.key);
     if (!spec) throw notFound('Parâmetro');
+    // A module administrator edits only the parameters of its module.
+    const needed = spec.group === 'cme' ? 'cme:parameters:edit' : 'ccih:parameters:edit';
+    if (!auth.permissions.includes('config:rules:edit') && !auth.permissions.includes(needed)) {
+      await audit(db, actorOf(req), { action: 'access_denied', entity: 'rule_parameter', entityId: spec.key, context: { required: needed } });
+      throw forbidden();
+    }
     const body = parse(RuleBody, req.body);
     const problem = validateRuleValue(spec, body.value);
     if (problem) throw new HttpError(400, 'validacao', 'Dados inválidos. Revise os campos indicados.', [{ path: 'value', message: problem }]);

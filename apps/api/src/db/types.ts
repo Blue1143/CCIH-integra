@@ -66,6 +66,7 @@ export interface RoleTable {
   code: string;
   name: string;
   permissions: string[];
+  module: Generated<'ccih' | 'cme' | 'qualidade' | 'sistema'>;
 }
 
 export interface AppUserTable {
@@ -84,6 +85,24 @@ export interface AppUserTable {
   must_change_password: Generated<boolean>;
   created_at: CreatedAt;
   row_version: RowVersion;
+  email: Generated<string | null>;
+  professional_category: Generated<'enfermeiro' | 'tecnico_enfermagem' | 'medico' | 'administrativo' | 'aprendiz' | 'outro' | null>;
+  function_role: Generated<string | null>;
+  status: Generated<'pendente' | 'ativo' | 'suspenso' | 'desativado'>;
+  status_reason: Generated<string | null>;
+  created_by: Generated<string | null>;
+  authorized_by: Generated<string | null>;
+  authorized_by_name: Generated<string | null>;
+  permissions_changed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  valid_from: Generated<string | null>;
+  valid_until: Generated<string | null>;
+  supervisor_id: Generated<string | null>;
+  is_founder: Generated<boolean>;
+}
+
+export interface UserPermissionTable {
+  id: Generated<string>; user_id: string; permission: string; granted_by: string | null; granted_by_name: string; justification: string;
+  valid_until: string | null; created_at: CreatedAt; revoked_at: NullableTimestamp; revoked_by_name: string | null;
 }
 
 export interface UserRoleTable {
@@ -579,6 +598,7 @@ export interface DB {
   role: RoleTable;
   app_user: AppUserTable;
   user_role: UserRoleTable;
+  user_permission: UserPermissionTable;
   user_scope: UserScopeTable;
   session: SessionTable;
   audit_log: AuditLogTable;

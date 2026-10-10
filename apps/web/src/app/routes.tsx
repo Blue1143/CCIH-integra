@@ -94,7 +94,7 @@ export const routes: RouteObject[] = [
       { path: 'notificacoes', element: page(<NotificationsPage />) },
       {
         path: 'admin',
-        element: guarded(['config:view', 'users:view', 'audit:view'], <AdminLayout />),
+        element: guarded(['config:view', 'users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme', 'audit:view', 'audit:view:module'], <AdminLayout />),
         children: [
           { index: true, element: page(<AdminIndex />) },
           { path: 'metas', element: guarded(['config:view'], <TargetsPage />) },
@@ -102,8 +102,8 @@ export const routes: RouteObject[] = [
           { path: 'referencias', element: guarded(['config:view'], <ReferencesPage />) },
           { path: 'cme', element: guarded(['config:view'], <CmePolicyPage />) },
           { path: 'setores', element: guarded(['config:view'], <OrgPage />) },
-          { path: 'usuarios', element: guarded(['users:view'], <UsersPage />) },
-          { path: 'auditoria', element: guarded(['audit:view'], <AuditPage />) },
+          { path: 'usuarios', element: guarded(['users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme'], <UsersPage />) },
+          { path: 'auditoria', element: guarded(['audit:view', 'audit:view:module'], <AuditPage />) },
         ],
       },
       ...ALL_NAV_ITEMS.filter((i) => i.phase != null).map((item) => ({ path: item.path.slice(1), element: <Guard anyOf={item.permissions}><PlannedModulePage item={item} /></Guard> })),

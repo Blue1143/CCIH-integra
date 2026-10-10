@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
+import { todayIn } from '@ccih/domain';
 import type { DB } from '../db/types';
 import type { Env } from '../env';
 import { audit } from '../audit/audit';
@@ -23,6 +24,7 @@ export function meResponse(auth: AuthContext, idleMinutes: number) {
     scope: auth.scope ?? null,
     session: { expiresAt: auth.expiresAt.toISOString(), idleExpiresAt: auth.idleExpiresAt.toISOString(), idleMinutes },
     mustChangePassword: auth.mustChangePassword,
+    isFounder: auth.isFounder,
   };
 }
 
@@ -39,9 +41,12 @@ export async function authRoutes(app: FastifyInstance, { db, env }: { db: Kysely
     const user = await db.selectFrom('app_user').selectAll().where('login', '=', login).executeTakeFirst();
     const actor = { ...actorOf(req), institutionId: user?.institution_id ?? null, userId: user?.id ?? null, login };
 
-    if (!user || !user.active) {
+    // Pending, suspended or deactivated accounts and accounts outside their validity window do not sign in.
+    const today = user ? todayIn((await db.selectFrom('institution').select('timezone').where('id', '=', user.institution_id).executeTakeFirstOrThrow()).timezone) : '';
+    const outside = !!user && ((user.valid_from != null && today < user.valid_from) || (user.valid_until != null && today > user.valid_until));
+    if (!user || !user.active || user.status !== 'ativo' || outside) {
       await burnPasswordCheck(password);
-      await audit(db, actor, { action: 'login_failure', entity: 'app_user', entityId: user?.id ?? null, context: { reason: user ? 'inativo' : 'login_inexistente' } });
+      await audit(db, actor, { action: 'login_failure', entity: 'app_user', entityId: user?.id ?? null, context: { reason: !user ? 'login_inexistente' : outside ? 'fora_da_validade' : user.status !== 'ativo' ? `conta_${user.status}` : 'inativo' } });
       throw INVALID();
     }
     const locked = user.locked_until && user.locked_until.getTime() > Date.now();

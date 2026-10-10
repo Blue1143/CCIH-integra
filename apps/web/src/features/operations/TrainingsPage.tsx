@@ -110,7 +110,7 @@ function Sessions() {
   return (
     <>
       {saved ? <FormMessage tone="success">{saved}</FormMessage> : null}
-      {session.can('quality:edit') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => { setCreating(true); setSaved(null); }}>Registrar turma</Button></div> : null}
+      {session.can('quality:training:edit') && !creating ? <div><Button variant="primary" icon="plus" onClick={() => { setCreating(true); setSaved(null); }}>Registrar turma</Button></div> : null}
       {creating ? <SessionForm trainings={data.data.trainings.filter((t) => t.active)} onDone={(msg) => { setCreating(false); if (msg) setSaved(msg); }} /> : null}
       <DataTable caption="Turmas realizadas" rows={data.data.sessions} rowKey={(s) => s.id} pageSize={20}
         columns={[
@@ -120,7 +120,7 @@ function Sessions() {
           { key: 'hours', label: 'Carga (h)', align: 'right', render: (s) => formatNumber(s.hours, 1) },
           { key: 'sector', label: 'Setor', value: (s) => (s.sectorId ? sectorName(org.data, s.sectorId) : 'Vários') },
           { key: 'attendees', label: 'Presentes', align: 'right' },
-          { key: 'files', label: 'Evidências', render: (s) => <Attachments entity="training_session" entityId={s.id} files={s.attachments} canUpload={session.can('quality:edit')} refresh={['trainings']} /> },
+          { key: 'files', label: 'Evidências', render: (s) => <Attachments entity="training_session" entityId={s.id} files={s.attachments} canUpload={session.can('quality:training:edit')} refresh={['trainings']} /> },
         ]} />
     </>
   );
