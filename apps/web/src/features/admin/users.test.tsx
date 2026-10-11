@@ -70,8 +70,8 @@ describe('user management', () => {
     await user.click(await screen.findByRole('button', { name: 'Novo usuário' }));
     await user.selectOptions(screen.getByLabelText(/Função no sistema/), 'aprendiz');
     const section = screen.getByRole('group', { name: 'Permissões do Jovem Aprendiz' });
-    expect(within(section).getByLabelText('Registro operacional CME')).toBeInTheDocument();
-    expect(within(section).queryByLabelText('Consulta CCIH')).toBeNull();
+    expect(within(section).getByLabelText('CME: Registro/edição')).toBeInTheDocument();
+    expect(within(section).queryByLabelText('CCIH — vigilância: Consulta')).toBeNull();
     expect(within(section).queryByLabelText(/Liberar, reter ou rejeitar/)).toBeNull();
     // Pending by default; activating without grants is refused before sending.
     await user.selectOptions(screen.getByLabelText(/Situação da conta/), 'ativo');
@@ -80,7 +80,8 @@ describe('user management', () => {
     await user.type(form().getByLabelText(/Justificativa/), 'Programa Jovem Aprendiz na CME');
     await user.click(screen.getByRole('button', { name: 'Criar usuário' }));
     expect(await screen.findByText('Defina as permissões do Jovem Aprendiz antes de ativar a conta.')).toBeInTheDocument();
-    await user.click(within(section).getByLabelText('Registro operacional CME'));
+    await user.click(within(section).getByLabelText('CME: Registro/edição'));
+    expect(within(section).getByLabelText('CME: Consulta')).toBeChecked();
     await user.click(screen.getByLabelText('Todos os setores'));
     await user.selectOptions(screen.getByLabelText(/Responsável pela supervisão/), 's1');
     await user.type(screen.getByLabelText(/Expiração ou revisão/), '2027-03-31');

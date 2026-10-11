@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  APPRENTICE_ALLOWED, APPRENTICE_PACKAGES, DEFAULT_ROLE_PERMISSIONS, DELEGABLE, FUNCTION_ROLES, NEVER_GRANTED_INDIVIDUALLY, ROLE_MODULE,
-  assignableRoles, canManageAccount, grantablePackages, grantablePermissions, type Permission, type RoleCode,
+  APPRENTICE_ALLOWED, APPRENTICE_AREAS, DEFAULT_ROLE_PERMISSIONS, DELEGABLE, FUNCTION_ROLES, NEVER_GRANTED_INDIVIDUALLY, ROLE_MODULE,
+  apprenticeMarkerPermissions, apprenticeMarkersOf, assignableRoles, canManageAccount, grantableApprenticeAreas, grantablePermissions, type Permission, type RoleCode,
 } from './permissions';
 
 const can = (r: RoleCode, p: Permission) => DEFAULT_ROLE_PERMISSIONS[r].includes(p);
@@ -90,8 +90,18 @@ describe('delegation', () => {
     const list = grantablePermissions(admin, ['aprendiz']);
     expect(list.every((p) => APPRENTICE_ALLOWED.includes(p))).toBe(true);
     expect(list).not.toContain('cme:release');
-    expect(Object.values(APPRENTICE_PACKAGES).every((k) => k.permissions.every((p) => APPRENTICE_ALLOWED.includes(p)))).toBe(true);
-    expect(grantablePackages(admCme).sort()).toEqual(['consulta_cme', 'registro_cme']);
-    expect(grantablePackages(admin)).toHaveLength(7);
+    for (const area of Object.values(APPRENTICE_AREAS)) for (const level of Object.values(area.levels)) expect(level!.permissions.every((p) => APPRENTICE_ALLOWED.includes(p))).toBe(true);
+    expect(grantableApprenticeAreas(admCme).sort()).toEqual(['alertas', 'cme']);
+    expect(grantableApprenticeAreas(admCcih).sort()).toEqual(['alertas', 'ccih', 'indicadores']);
+    expect(grantableApprenticeAreas(admin)).toHaveLength(5);
+  });
+
+  it('turns each area marker into permissions; recording includes consulting the same area, never critical acts', () => {
+    expect(apprenticeMarkerPermissions('cme', 'consulta')).toEqual(['cme:view']);
+    expect(apprenticeMarkerPermissions('cme', 'registro').sort()).toEqual(['cme:scan', 'cme:view', 'nc:record']);
+    expect(apprenticeMarkerPermissions('indicadores', 'exportacao')).toContain('indicators:view');
+    const all = Object.keys(APPRENTICE_AREAS).flatMap((a) => (['consulta', 'registro', 'exportacao'] as const).flatMap((l) => apprenticeMarkerPermissions(a as 'cme', l)));
+    expect(all.some((p) => ['cme:release', 'cme:cycle:record', 'iras:decide', 'patient:view_identified', 'users:manage'].includes(p))).toBe(false);
+    expect(apprenticeMarkersOf(['cme:view', 'cme:scan', 'nc:record'])).toEqual([['cme', 'consulta'], ['cme', 'registro']]);
   });
 });

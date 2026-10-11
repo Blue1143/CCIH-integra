@@ -3,6 +3,8 @@
 Gerada a partir de `packages/domain/src/permissions.ts` (fonte única: a API, a interface e os testes usam as mesmas definições). Ao alterar a matriz, altere o domínio, crie uma migração que atualize os perfis existentes e regenere esta tabela.
 
 Legenda: ● concedida pela função · ○ pode ser concedida individualmente (autorização expressa, com justificativa e validade) · — não.
+
+O Técnico de Enfermagem CME **pode receber autorização expressa para liberar cargas** (`cme:release`), concedida pelo ADM CME ou pelo Administrador, com justificativa e validade (decisão de 11/10/2026).
 Colunas: Enf. CCIH = Enfermeiro CCIH; Enf. CME = Enfermeiro CME; Enf. Qual. = Enfermeiro Qualidade; Téc. CCIH = Técnico de Enfermagem CCIH; Téc. CME = Técnico de Enfermagem CME; Téc. Qual. = Técnico de Enfermagem Qualidade; ADM CME = ADM CME; ADM CCIH = ADM CCIH; Aprendiz = Jovem Aprendiz; Infecto. = Médico infectologista; Auditor = Auditor; Gestor = Gestor; Consulta = Consulta.
 
 Administrador do sistema: todas as permissões, exceto criar/alterar Administradores do sistema e a conta criadora. **Administrador criador**: todas, inclusive criar Administradores do sistema.
@@ -77,17 +79,21 @@ Ninguém altera o próprio acesso (função, permissões, setor ou situação). 
 
 ## Jovem Aprendiz
 
-Começa sem permissões e **pendente**; só entra no sistema depois que o gestor define pacotes ou permissões (somente da lista permitida), setor, supervisor e data de expiração/revisão. Fora da validade o acesso é negado e as sessões são encerradas.
+Começa sem permissões e **pendente**; só entra no sistema depois que o gestor marca os acessos por área, setor, supervisor e data de expiração/revisão. Fora da validade o acesso é negado e as sessões são encerradas.
 
-| Pacote | Módulo | Permissões |
-| --- | --- | --- |
-| Consulta CCIH | ccih | `dashboard:view`, `indicators:view`, `iras:view`, `patient:view`, `surgery:view`, `micro:view`, `alerts:view` |
-| Apoio operacional CCIH | ccih | `dashboard:view`, `indicators:view`, `iras:view`, `patient:view`, `quality:view`, `quality:bundle:record`, `nc:record`, `alerts:view` |
-| Consulta CME | cme | `cme:view` |
-| Registro operacional CME | cme | `cme:view`, `cme:scan`, `nc:record` |
-| Consulta Qualidade | qualidade | `quality:view`, `indicators:view` |
-| Apoio em auditorias | qualidade | `quality:view`, `quality:audit:execute`, `nc:record` |
-| Consulta de indicadores | qualidade | `dashboard:view`, `indicators:view` |
+Os acessos são **marcadores por área e nível** (Consulta, Registro/edição, Exportação). Marcar Registro ou Exportação marca também a Consulta da área; desmarcar a Consulta retira a área inteira. O ADM de módulo só vê as áreas do próprio módulo e Alertas. Um ajuste fino por permissão (somente da lista permitida ao aprendiz) fica disponível abaixo da grade. Liberação de cargas, configuração, exportação nominal e gestão de usuários nunca são concedidas ao aprendiz.
+
+| Área | Módulo | Marcador | O que permite | Permissões (inclui a consulta) |
+| --- | --- | --- | --- | --- |
+| CCIH — vigilância | ccih | Consulta | Vigilância de IRAS, pacientes (iniciais e prontuário), cirurgias, microbiologia e antimicrobianos | `iras:view`, `patient:view`, `surgery:view`, `micro:view`, `atm:view` |
+| CCIH — vigilância | ccih | Registro/edição | Checklists de bundle e higiene das mãos; registro de não conformidade | `iras:view`, `patient:view`, `surgery:view`, `micro:view`, `atm:view`, `quality:view`, `quality:bundle:record`, `nc:record` |
+| CME | cme | Consulta | Painel, cargas, processos e rastreabilidade (somente leitura) | `cme:view` |
+| CME | cme | Registro/edição | Leituras nas estações (etapas do processamento); registro de não conformidade | `cme:view`, `cme:scan`, `nc:record` |
+| Qualidade — auditorias | qualidade | Consulta | Auditorias, não conformidades, bundles, treinamentos e insumos | `quality:view` |
+| Qualidade — auditorias | qualidade | Registro/edição | Achados, evidências e andamento de ações de auditorias; checklists; não conformidades | `quality:view`, `quality:audit:execute`, `quality:bundle:record`, `nc:record` |
+| Indicadores e relatórios | ccih | Consulta | Painel, indicadores e relatórios | `dashboard:view`, `indicators:view`, `reports:view` |
+| Indicadores e relatórios | ccih | Exportação | Exportação de dados agregados (registrada no log) | `dashboard:view`, `indicators:view`, `reports:view`, `export:aggregate` |
+| Alertas | todos | Consulta | Ver os alertas das áreas acessíveis | `alerts:view` |
 
 ## Conta criadora (instalação)
 

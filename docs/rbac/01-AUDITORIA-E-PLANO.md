@@ -99,6 +99,11 @@ Para cada função, testes positivos e **negativos por chamada direta à API**, 
 3. **Leitura de outras áreas pela Qualidade** só por **concessão individual** (com justificativa e validade), quando a auditoria exigir.
 4. **Senha da conta criadora**: aceita apenas como **senha inicial temporária**, com troca obrigatória no primeiro acesso. A política de senha não é enfraquecida e nenhuma credencial vai para o repositório.
 
+### Decisões de 11/10/2026
+
+5. **Liberação de cargas por Técnico CME**: **permitida por autorização expressa** (`cme:release` individual), concedida pelo ADM CME ou pelo Administrador, com justificativa e validade; revogável e registrada no histórico do usuário.
+6. **Acessos do Jovem Aprendiz**: definidos como **marcadores por área** (CCIH — vigilância, CME, Qualidade — auditorias, Indicadores e relatórios, Alertas) e **nível** (Consulta, Registro/edição, Exportação), ver a matriz.
+
 ## 7. Ordem de execução
 
 | Etapa | Entrega |

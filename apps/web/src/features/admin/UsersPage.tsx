@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ACCOUNT_STATUS_LABEL, ADDITIONAL_ROLES, APPRENTICE_PACKAGES, FUNCTION_ROLES, PERMISSIONS, PROFESSIONAL_CATEGORY_LABEL, ROLE_LABEL,
-  checkAccess, formatDate, grantablePackages, grantablePermissions, todayIn,
-  type AccountStatus, type ApprenticePackage, type Grantor, type Permission, type ProfessionalCategory, type RoleCode, type Status, type UserAccessInput,
+  ACCOUNT_STATUS_LABEL, ADDITIONAL_ROLES, APPRENTICE_AREAS, APPRENTICE_LEVEL_LABEL, FUNCTION_ROLES, PERMISSIONS, PROFESSIONAL_CATEGORY_LABEL, ROLE_LABEL,
+  apprenticeMarkerPermissions, apprenticeMarkersOf, checkAccess, formatDate, grantableApprenticeAreas, grantablePermissions, todayIn,
+  type AccountStatus, type ApprenticeArea, type ApprenticeLevel, type Grantor, type Permission, type ProfessionalCategory, type RoleCode, type Status, type UserAccessInput,
 } from '@ccih/domain';
 import { AlertBanner, Button, Card, ConfirmDialog, DataTable, EmptyState, ErrorState, Field, FormMessage, LoadingState, StatusBadge, type Column } from '@ccih/ui';
 import { useInstitution } from '../../data/source';
@@ -168,7 +168,7 @@ function UserForm({ user, adminOnly, meta, roles, sectors, tz, grantor, onDone }
   const allRoles = [d.functionRole, ...d.extraRoles].filter(Boolean) as RoleCode[];
   const isApprentice = d.functionRole === 'aprendiz';
   const grantable = grantablePermissions(grantor, allRoles);
-  const packages = isApprentice ? grantablePackages(grantor) : [];
+  const areas = isApprentice ? grantableApprenticeAreas(grantor) : [];
   const fromRoles = new Set(roles.filter((r) => allRoles.includes(r.code as RoleCode)).flatMap((r) => r.permissions));
   const effective = [...new Set([...fromRoles, ...d.grants])].sort() as Permission[];
 
@@ -200,9 +200,17 @@ function UserForm({ user, adminOnly, meta, roles, sectors, tz, grantor, onDone }
   };
   const err = (k: string) => errors[k] ?? m.fieldErrors[k] ?? null;
   const toggle = <T,>(list: T[], v: T, on: boolean) => (on ? [...new Set([...list, v])] : list.filter((x) => x !== v));
-  const togglePackage = (k: ApprenticePackage, on: boolean) => {
-    const perms = APPRENTICE_PACKAGES[k].permissions.filter((p) => grantable.includes(p));
-    setD({ ...d, grants: on ? [...new Set([...d.grants, ...perms])] : d.grants.filter((p) => !perms.includes(p)) });
+  /** Markers per area and level; recording or exporting implies consulting, and unticking consultation clears the area. */
+  const LEVELS: ApprenticeLevel[] = ['consulta', 'registro', 'exportacao'];
+  const markerUniverse = new Set((Object.keys(APPRENTICE_AREAS) as ApprenticeArea[]).flatMap((a) => LEVELS.flatMap((l) => apprenticeMarkerPermissions(a, l))));
+  const markers = apprenticeMarkersOf(d.grants);
+  const hasMarker = (a: ApprenticeArea, l: ApprenticeLevel) => markers.some(([ma, ml]) => ma === a && ml === l);
+  const toggleMarker = (area: ApprenticeArea, level: ApprenticeLevel, on: boolean) => {
+    let next = markers.filter(([a, l]) => !(a === area && (l === level || (!on && level === 'consulta'))));
+    if (on) next = [...next, [area, level], ...(level !== 'consulta' ? [[area, 'consulta'] as [ApprenticeArea, ApprenticeLevel]] : [])];
+    const extras = d.grants.filter((p) => !markerUniverse.has(p));
+    const fromMarkers = next.flatMap(([a, l]) => apprenticeMarkerPermissions(a, l)).filter((p) => grantable.includes(p));
+    setD({ ...d, grants: [...new Set([...extras, ...fromMarkers])] });
   };
 
   const title = adminOnly ? 'Criar administrador do sistema' : user ? `Acesso de ${user.displayName}` : 'Novo usuário';
@@ -261,13 +269,28 @@ function UserForm({ user, adminOnly, meta, roles, sectors, tz, grantor, onDone }
           <fieldset className="ig-fieldset">
             <legend>Permissões do Jovem Aprendiz</legend>
             <p className="ig-small ig-muted" style={{ marginTop: 0 }}>Só o necessário às atividades supervisionadas. Sem administração, liberação de cargas, decisões, dados identificados de pacientes ou concessão a terceiros.</p>
-            <div className="ig-checks">
-              {packages.map((k) => {
-                const perms = APPRENTICE_PACKAGES[k].permissions.filter((p) => grantable.includes(p));
-                return <label key={k}><input type="checkbox" checked={perms.length > 0 && perms.every((p) => d.grants.includes(p))} onChange={(e) => togglePackage(k, e.target.checked)} />{APPRENTICE_PACKAGES[k].label}</label>;
-              })}
+            <div className="ig-table-scroll">
+              <table className="ig-table marker-grid">
+                <caption className="ig-sr-only">Marcadores de acesso por área</caption>
+                <thead><tr><th scope="col">Área</th>{LEVELS.map((l) => <th key={l} scope="col">{APPRENTICE_LEVEL_LABEL[l]}</th>)}</tr></thead>
+                <tbody>
+                  {areas.map((a) => (
+                    <tr key={a}>
+                      <th scope="row"><b>{APPRENTICE_AREAS[a].label}</b>{LEVELS.filter((l) => APPRENTICE_AREAS[a].levels[l]).map((l) => <span key={l} className="ig-small ig-muted"><br />{APPRENTICE_LEVEL_LABEL[l]}: {APPRENTICE_AREAS[a].levels[l]!.hint}</span>)}</th>
+                      {LEVELS.map((l) => (
+                        <td key={l}>{APPRENTICE_AREAS[a].levels[l] ? (
+                          <input type="checkbox" aria-label={`${APPRENTICE_AREAS[a].label}: ${APPRENTICE_LEVEL_LABEL[l]}`} checked={hasMarker(a, l)} onChange={(e) => toggleMarker(a, l, e.target.checked)} />
+                        ) : <span className="ig-muted" aria-label="Não se aplica">—</span>}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <GrantChecks grantable={grantable} value={d.grants} onChange={(grants) => setD({ ...d, grants })} legend="Ajuste fino (leitura, registro e exportação permitidos)" />
+            <details>
+              <summary>Ajuste fino por permissão</summary>
+              <GrantChecks grantable={grantable} value={d.grants} onChange={(grants) => setD({ ...d, grants })} legend="Permissões permitidas ao Jovem Aprendiz" />
+            </details>
             <div className="ig-form-row">
               <Field label="Início" error={err('validFrom')}><input type="date" value={d.validFrom} onChange={(e) => setD({ ...d, validFrom: e.target.value })} /></Field>
               <Field label="Expiração ou revisão" required error={err('validUntil')}><input type="date" value={d.validUntil} onChange={(e) => setD({ ...d, validUntil: e.target.value })} /></Field>

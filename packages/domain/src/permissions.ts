@@ -169,16 +169,66 @@ export const APPRENTICE_ALLOWED: Permission[] = [
   'quality:view', 'quality:bundle:record', 'quality:audit:execute', 'nc:record', 'alerts:view', 'export:aggregate',
 ];
 
-export type ApprenticePackage = 'consulta_ccih' | 'apoio_ccih' | 'consulta_cme' | 'registro_cme' | 'consulta_qualidade' | 'apoio_auditorias' | 'consulta_indicadores';
-export const APPRENTICE_PACKAGES: Record<ApprenticePackage, { label: string; module: AccessModule; permissions: Permission[] }> = {
-  consulta_ccih: { label: 'Consulta CCIH', module: 'ccih', permissions: ['dashboard:view', 'indicators:view', 'iras:view', 'patient:view', 'surgery:view', 'micro:view', 'alerts:view'] },
-  apoio_ccih: { label: 'Apoio operacional CCIH', module: 'ccih', permissions: ['dashboard:view', 'indicators:view', 'iras:view', 'patient:view', 'quality:view', 'quality:bundle:record', 'nc:record', 'alerts:view'] },
-  consulta_cme: { label: 'Consulta CME', module: 'cme', permissions: ['cme:view'] },
-  registro_cme: { label: 'Registro operacional CME', module: 'cme', permissions: ['cme:view', 'cme:scan', 'nc:record'] },
-  consulta_qualidade: { label: 'Consulta Qualidade', module: 'qualidade', permissions: ['quality:view', 'indicators:view'] },
-  apoio_auditorias: { label: 'Apoio em auditorias', module: 'qualidade', permissions: ['quality:view', 'quality:audit:execute', 'nc:record'] },
-  consulta_indicadores: { label: 'Consulta de indicadores', module: 'qualidade', permissions: ['dashboard:view', 'indicators:view'] },
+/**
+ * Jovem Aprendiz: markers per area and level, chosen by the supervising manager. "Registro/edição"
+ * includes the consultation of the same area; nothing here allows administration, release of loads,
+ * IRAS decisions, identified patient data or granting access to others.
+ */
+export type ApprenticeArea = 'ccih' | 'cme' | 'qualidade' | 'indicadores' | 'alertas';
+export type ApprenticeLevel = 'consulta' | 'registro' | 'exportacao';
+export const APPRENTICE_LEVEL_LABEL: Record<ApprenticeLevel, string> = { consulta: 'Consulta', registro: 'Registro/edição', exportacao: 'Exportação' };
+export const APPRENTICE_AREAS: Record<ApprenticeArea, { label: string; module: 'ccih' | 'cme' | 'qualidade' | null; levels: Partial<Record<ApprenticeLevel, { hint: string; permissions: Permission[] }>> }> = {
+  ccih: {
+    label: 'CCIH — vigilância', module: 'ccih',
+    levels: {
+      consulta: { hint: 'Vigilância de IRAS, pacientes (iniciais e prontuário), cirurgias, microbiologia e antimicrobianos', permissions: ['iras:view', 'patient:view', 'surgery:view', 'micro:view', 'atm:view'] },
+      registro: { hint: 'Checklists de bundle e higiene das mãos; registro de não conformidade', permissions: ['quality:view', 'quality:bundle:record', 'nc:record'] },
+    },
+  },
+  cme: {
+    label: 'CME', module: 'cme',
+    levels: {
+      consulta: { hint: 'Painel, cargas, processos e rastreabilidade (somente leitura)', permissions: ['cme:view'] },
+      registro: { hint: 'Leituras nas estações (etapas do processamento); registro de não conformidade', permissions: ['cme:scan', 'nc:record'] },
+    },
+  },
+  qualidade: {
+    label: 'Qualidade — auditorias', module: 'qualidade',
+    levels: {
+      consulta: { hint: 'Auditorias, não conformidades, bundles, treinamentos e insumos', permissions: ['quality:view'] },
+      registro: { hint: 'Achados, evidências e andamento de ações de auditorias; checklists; não conformidades', permissions: ['quality:audit:execute', 'quality:bundle:record', 'nc:record'] },
+    },
+  },
+  indicadores: {
+    label: 'Indicadores e relatórios', module: 'ccih',
+    levels: {
+      consulta: { hint: 'Painel, indicadores e relatórios', permissions: ['dashboard:view', 'indicators:view', 'reports:view'] },
+      exportacao: { hint: 'Exportação de dados agregados (registrada no log)', permissions: ['export:aggregate'] },
+    },
+  },
+  alertas: {
+    label: 'Alertas', module: null,
+    levels: { consulta: { hint: 'Ver os alertas das áreas acessíveis', permissions: ['alerts:view'] } },
+  },
 };
+
+/** Permissions of one marker; "Registro/edição" and "Exportação" include the consultation of the area. */
+export function apprenticeMarkerPermissions(area: ApprenticeArea, level: ApprenticeLevel): Permission[] {
+  const a = APPRENTICE_AREAS[area].levels;
+  const own = a[level]?.permissions ?? [];
+  return level === 'consulta' ? own : [...new Set([...(a.consulta?.permissions ?? []), ...own])];
+}
+
+/** Which markers are fully present in a set of grants (to show the current choice). */
+export function apprenticeMarkersOf(grants: readonly string[]): Array<[ApprenticeArea, ApprenticeLevel]> {
+  const out: Array<[ApprenticeArea, ApprenticeLevel]> = [];
+  for (const area of Object.keys(APPRENTICE_AREAS) as ApprenticeArea[]) {
+    for (const level of Object.keys(APPRENTICE_AREAS[area].levels) as ApprenticeLevel[]) {
+      if (apprenticeMarkerPermissions(area, level).every((p) => grants.includes(p))) out.push([area, level]);
+    }
+  }
+  return out;
+}
 
 /** Who is acting on accounts: the permissions of the manager and whether it is the creator account. */
 export interface Grantor { permissions: readonly string[]; isFounder: boolean }
@@ -227,11 +277,14 @@ export function grantablePermissions(g: Grantor, targetRoles: readonly RoleCode[
   return list;
 }
 
-/** Apprentice packages a grantor may use (a module administrator: only those of its module). */
-export function grantablePackages(g: Grantor): ApprenticePackage[] {
+/** Areas whose apprentice markers a grantor may use (a module administrator: its module; alerts for any manager). */
+export function grantableApprenticeAreas(g: Grantor): ApprenticeArea[] {
   const scope = managedModules(g);
   if (!scope) return [];
-  return (Object.keys(APPRENTICE_PACKAGES) as ApprenticePackage[]).filter((k) => scope === 'all' || (scope as AccessModule[]).includes(APPRENTICE_PACKAGES[k].module));
+  return (Object.keys(APPRENTICE_AREAS) as ApprenticeArea[]).filter((k) => {
+    const m = APPRENTICE_AREAS[k].module;
+    return scope === 'all' || m === null || (scope as string[]).includes(m);
+  });
 }
 
 export function hasPermission(granted: readonly string[], required: Permission): boolean {
