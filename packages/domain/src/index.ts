@@ -36,3 +36,5 @@ export * from './cme/dto';
 export * from './cme/codes';
 export * from './cme/flow';
 export * from './cme/hid';
+export * from './cme/barcode';
+export * from './cme/labels';

@@ -47,6 +47,7 @@ const ProcessesPage = named(() => import('../features/cme/ProcessPages'), 'Proce
 const ProcessDetailPage = named(() => import('../features/cme/ProcessPages'), 'ProcessDetailPage');
 const FlowSetupPage = named(() => import('../features/cme/SetupPages'), 'FlowSetupPage');
 const AssetsPage = named(() => import('../features/cme/SetupPages'), 'AssetsPage');
+const LabelsPage = named(() => import('../features/cme/LabelsPage'), 'LabelsPage');
 const TracePage = named(() => import('../features/cme/TracePage'), 'TracePage');
 const AccountPage = named(() => import('../features/auth/AccountPage'), 'AccountPage');
 const NotificationsPage = named(() => import('../features/inbox/NotificationsPage'), 'NotificationsPage');
@@ -90,6 +91,7 @@ export const routes: RouteObject[] = [
       { path: 'cme/processos/:id', element: guarded(['cme:view'], <ProcessDetailPage />) },
       { path: 'cme/estacoes', element: guarded(['cme:view'], <FlowSetupPage />) },
       { path: 'cme/materiais', element: guarded(['cme:view'], <AssetsPage />) },
+      { path: 'cme/etiquetas', element: guarded(['cme:view'], <LabelsPage />) },
       { path: 'conta', element: page(<AccountPage />) },
       { path: 'notificacoes', element: page(<NotificationsPage />) },
       {

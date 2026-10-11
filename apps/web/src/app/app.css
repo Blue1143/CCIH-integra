@@ -167,3 +167,21 @@ details.ig-fieldset > summary { cursor: pointer; }
 .marker-grid th[scope="row"] { font-weight: 400; min-width: 220px; }
 .marker-grid td { text-align: center; vertical-align: middle; }
 .marker-grid input[type="checkbox"] { width: 20px; height: 20px; }
+
+/* ---------- Labels (real size in mm; printed alone, one per page) ---------- */
+.cme-label { box-sizing: border-box; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; overflow: hidden; border: 1px dashed var(--line); display: flex; flex-direction: column; }
+.cme-label-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cme-label-barrow { display: flex; justify-content: center; }
+.cme-label-bars { display: block; }
+.cme-label-code { text-align: center; font-family: 'Courier New', monospace; font-weight: 700; letter-spacing: 0.02em; }
+.cme-label-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cme-label-line.strong { font-weight: 700; }
+.cme-label-preview { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; margin-top: var(--space-3); padding: var(--space-3); background: var(--surface-2, #f4f4f4); border-radius: var(--radius-md); overflow-x: auto; }
+.label-print-root { display: none; }
+@media print {
+  body > *:not(.label-print-root) { display: none !important; }
+  .label-print-root { display: block; }
+  .label-print-page { break-after: page; page-break-after: always; }
+  .label-print-page .cme-label { border: 0; }
+  .label-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

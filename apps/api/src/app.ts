@@ -22,6 +22,7 @@ import { alertRoutes } from './routes/alerts';
 import { attachmentRoutes } from './routes/attachments';
 import { cmeRoutes } from './routes/cme';
 import { cmeFlowRoutes } from './routes/cme-flow';
+import { cmeLabelRoutes } from './routes/cme-labels';
 import { notificationRoutes } from './routes/notifications';
 import { realtimeRoutes } from './routes/realtime';
 import { userRoutes } from './routes/users';
@@ -109,6 +110,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       await api.register(attachmentRoutes, { db, env });
       await api.register(cmeRoutes, { db });
       await api.register(cmeFlowRoutes, { db, env });
+      await api.register(cmeLabelRoutes, { db });
     },
     { prefix: '/api' },
   );

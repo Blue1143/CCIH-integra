@@ -4,9 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Regras de domínio, configuração institucional e motor de indicadores do CCIH Integra (TypeScript puro, sem UI).",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
+  },
+  "devDependencies": {
+    "@zxing/library": "^0.21.3"
   }
 }

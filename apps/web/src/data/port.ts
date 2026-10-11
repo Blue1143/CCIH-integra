@@ -5,6 +5,7 @@ import type {
   QualityAuditDetail, QualityAuditDto, StaffMember, SupplyDto, SupplyMovementDto, SurveillanceRow, TrainingCoveragePayload, TrainingDto, TrainingSessionDto,
   AttachmentDto, CmeOverview, CmeTestDto, EquipmentStatus, IbControl, InstrumentSetDto, LoadDetail, LoadStatus, LoadSummary, PackagingType, RecordedTestType,
   SterilizerDto, SterilizerType, TestResult, TraceResult,
+  LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
   AssetDto, CmeSectorDto, UseRecorded, UserNotificationDto, RoleCode, UserAccessInput, UserAccountDto, UserHistoryEntry, FlowConfigDto, InputMethod, ProcessDetail, ProcessStep, ProcessSummaryDto, ScanConfig, ScanEventDto, ScanResponse, StationDto, Symbology,
 } from '@ccih/domain';
 
@@ -318,6 +319,11 @@ export interface CmePort {
   processes(q: Query): Promise<Paged<ProcessSummaryDto>>;
   process(id: string): Promise<ProcessDetail>;
   scanEvents(q: { stationId?: string; limit?: number }): Promise<{ events: ScanEventDto[] }>;
+  labelLayouts(): Promise<{ layouts: LabelLayoutDto[] }>;
+  saveLabelLayout(id: string | null, input: LabelLayoutInput & Justified & { isDefault: boolean; active: boolean; rowVersion: number | null }): Promise<LabelLayoutDto>;
+  labelPrints(q: { entity?: LabelEntity; entityId?: string; q?: string; situacao?: 'ativas' | 'todas'; limit?: number }): Promise<{ prints: LabelPrintDto[] }>;
+  printLabels(input: { entity: LabelEntity; ids: string[]; layoutId: string; output: LabelOutput; mode: LabelPrintKind; reason: string | null }): Promise<{ labels: PrintedLabel[]; zpl: string | null; prints: LabelPrintDto[] }>;
+  cancelLabel(id: string, reason: string): Promise<LabelPrintDto>;
 }
 
 export interface StationInput extends Justified {

@@ -10,6 +10,8 @@ import { DemoTag, PageHeader, Pager, Timeline, useTimeZone } from '../clinical/s
 import { useUrlFilters } from '../operations/shared';
 import { CmeNav, RequireCme, cmeSectorName, useCme, useCmeSectors } from './shared';
 import { RESULT_TONE } from './StationPage';
+import { LabelHistory, LabelPrintPanel, useActiveLabels } from './labels';
+import { useSession } from '../auth/session';
 
 const STATE_TONE: Record<ProcessState, Status> = { em_processo: 'info', bloqueado: 'crit', liberado: 'ok', distribuido: 'ok', devolvido: 'neutral', encerrado: 'neutral', descartado: 'warn' };
 
@@ -66,6 +68,7 @@ function ProcessDetailView() {
   if (q.isPending) return <div className="page"><LoadingState /></div>;
   if (q.isError) return <div className="page"><ErrorState onRetry={() => void q.refetch()} /></div>;
   const p = q.data;
+  const loose = p.code.startsWith('PR-');
   return (
     <div className="page">
       <PageHeader back={{ to: '/cme/processos', label: 'Processos' }} title={<span>{p.description} <span className="ig-mono" style={{ fontSize: '0.6em' }}>{p.code}</span> <DemoTag origin={p.origin} /></span>}
@@ -86,6 +89,7 @@ function ProcessDetailView() {
           {p.nextProcessId ? <Link to={`/cme/processos/${p.nextProcessId}`}>Rodada seguinte</Link> : null}
         </p>
       </Card>
+      {loose ? <ReceptionLabel processId={p.id} code={p.code} closed={!!p.closedAt} /> : null}
       <Card title="Trilha de leituras" subtitle="Inclui leituras recusadas. Registros não podem ser alterados." headingLevel={2}>
         <Timeline timeZone={tz} items={[...p.events].reverse().map((e) => ({
           id: e.id, at: e.serverAt, tone: RESULT_TONE[e.result],
@@ -94,5 +98,24 @@ function ProcessDetailView() {
         }))} />
       </Card>
     </div>
+  );
+}
+
+/** Material without a permanent asset code gets a reception label with its process code. */
+function ReceptionLabel({ processId, code, closed }: { processId: string; code: string; closed: boolean }) {
+  const session = useSession();
+  const active = useActiveLabels('processo', code);
+  const [printing, setPrinting] = useState(false);
+  const canPrint = !closed && session.can('cme:scan', 'cme:cycle:record') && session.writable;
+  return (
+    <>
+      {canPrint && !printing ? (
+        <div className="ig-row" style={{ gap: 8 }}>
+          <Button icon="printer" onClick={() => setPrinting(true)}>{active.has(processId) ? 'Reimprimir etiqueta de recepção' : 'Imprimir etiqueta de recepção'}</Button>
+        </div>
+      ) : null}
+      {printing ? <LabelPrintPanel entity="processo" targets={[{ id: processId, code, hasActive: active.has(processId) }]} onClose={() => setPrinting(false)} /> : null}
+      <LabelHistory title="Etiqueta de recepção" entity="processo" entityId={processId} />
+    </>
   );
 }

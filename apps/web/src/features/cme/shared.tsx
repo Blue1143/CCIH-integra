@@ -68,6 +68,7 @@ export function CmeNav() {
     { key: 'equip', label: 'Equipamentos', href: '/cme/equipamentos' },
     { key: 'caixas', label: 'Caixas', href: '/cme/caixas' },
     { key: 'materiais', label: 'Materiais', href: '/cme/materiais' },
+    { key: 'etiquetas', label: 'Etiquetas', href: '/cme/etiquetas' },
     { key: 'estacoes', label: 'Estações e fluxo', href: '/cme/estacoes' },
   ].map((i) => ({ ...i, active: i.href === '/cme' ? pathname === '/cme' || pathname.startsWith('/cme/cargas') : pathname === i.href || pathname.startsWith(`${i.href}/`) }));
   return <SubNav label="Seções da CME" items={items} renderLink={(item, className) => <Link to={item.href} className={className} aria-current={item.active ? 'page' : undefined}>{item.label}</Link>} />;

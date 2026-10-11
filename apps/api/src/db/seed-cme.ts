@@ -186,5 +186,11 @@ async function seedFlow(trx: Transaction<DB>, ctx: CmeSeedContext, sets: Map<str
       events++;
     }
   }
-  return { cmeStations: DEMO_STATIONS.length, cmeAssets: assets.length, cmeFlowEvents: events };
+  // Demonstration layouts sized for a 203 dpi thermal printer; the real size depends on the printer the institution adopts.
+  await trx.insertInto('label_layout').values([
+    { institution_id: inst, name: 'Pacote estéril 70×40 mm (demonstração)', entity: 'pacote', width_mm: 70, height_mm: 40, margin_mm: 2, dpi: 203, bar_height_mm: 10, fields: ['processamento', 'validade', 'lote', 'equipamento', 'implante'], is_default: true, data_origin: 'demo', updated_at: ctx.now },
+    { institution_id: inst, name: 'Ativo 50×25 mm (demonstração)', entity: 'ativo', width_mm: 50, height_mm: 25, margin_mm: 2, dpi: 203, bar_height_mm: 8, fields: ['identificacao'], is_default: true, data_origin: 'demo', updated_at: ctx.now },
+    { institution_id: inst, name: 'Recepção avulsa 50×25 mm (demonstração)', entity: 'processo', width_mm: 50, height_mm: 25, margin_mm: 2, dpi: 203, bar_height_mm: 8, fields: ['processamento'], is_default: true, data_origin: 'demo', updated_at: ctx.now },
+  ]).execute();
+  return { cmeStations: DEMO_STATIONS.length, cmeAssets: assets.length, cmeFlowEvents: events, labelLayouts: 3 };
 }

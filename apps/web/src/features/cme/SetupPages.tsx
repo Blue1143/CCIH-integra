@@ -11,6 +11,7 @@ import { JustificationField, justificationError } from '../admin/shared';
 import { FormCard } from '../clinical/patient-forms';
 import { PageHeader, sectorName, useOrg, useTimeZone } from '../clinical/shared';
 import { CmeNav, RequireCme, useCme, useCmeMutation } from './shared';
+import { LabelPrintPanel, useActiveLabels, type LabelTarget } from './labels';
 
 export function FlowSetupPage() {
   return <RequireCme title="Estações e fluxo"><FlowSetup /></RequireCme>;
@@ -200,12 +201,18 @@ function Assets() {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<AssetDto[]>([]);
   const list = useQuery({ queryKey: ['cme', 'assets', q], queryFn: () => cme.assets(q.trim() ? { q: q.trim() } : {}) });
+  const active = useActiveLabels('ativo');
+  const [printing, setPrinting] = useState<LabelTarget[] | null>(null);
+  const canPrint = session.can('cme:scan', 'cme:cycle:record') && session.writable;
   const cols: Column<AssetDto>[] = [
     { key: 'code', label: 'Código', render: (a) => <span className="ig-mono">{a.code}</span> },
     { key: 'set', label: 'Caixa', value: (a) => a.setName },
     { key: 'tag', label: 'Identificação física', value: (a) => a.tag ?? '—' },
     { key: 'status', label: 'Situação', render: (a) => <StatusBadge status={a.status === 'ativo' ? 'ok' : a.status === 'manutencao' ? 'warn' : 'neutral'}>{a.status === 'ativo' ? 'Em uso' : a.status === 'manutencao' ? 'Em manutenção' : 'Baixado'}</StatusBadge> },
     { key: 'process', label: 'Processo atual', value: (a) => (a.openProcess ? PROCESS_STEP_LABEL[a.openProcess.step] : '—') },
+    { key: 'label', label: 'Etiqueta', render: (a) => (canPrint && a.status !== 'baixado'
+      ? <Button size="sm" onClick={() => setPrinting([{ id: a.id, code: a.code, hasActive: active.has(a.id) }])} aria-label={`${active.has(a.id) ? 'Reimprimir' : 'Imprimir'} etiqueta ${a.code}`}>{active.has(a.id) ? 'Reimprimir' : 'Imprimir'}</Button>
+      : active.has(a.id) ? 'Em uso' : '—') },
   ];
   return (
     <div className="page">
@@ -213,7 +220,12 @@ function Assets() {
         actions={session.can('cme:configure') && !creating ? <Button icon="plus" onClick={() => setCreating(true)}>Cadastrar materiais</Button> : null} />
       <CmeNav />
       {creating ? <AssetForm onDone={(a) => { setCreating(false); setCreated(a); }} /> : null}
-      {created.length ? <AlertBanner tone="ok" title={`${created.length} código(s) emitido(s)`}>{created.map((a) => a.code).join(', ')}. Identifique cada material com a etiqueta do código.</AlertBanner> : null}
+      {created.length ? (
+        <AlertBanner tone="ok" title={`${created.length} código(s) emitido(s)`} actions={canPrint ? <Button size="sm" icon="printer" onClick={() => setPrinting(created.map((a) => ({ id: a.id, code: a.code, hasActive: false })))}>Imprimir etiquetas</Button> : undefined}>
+          {created.map((a) => a.code).join(', ')}. Identifique cada material com a etiqueta do código.
+        </AlertBanner>
+      ) : null}
+      {printing ? <LabelPrintPanel key={printing.map((t) => t.id).join()} entity="ativo" targets={printing} onClose={() => setPrinting(null)} /> : null}
       <div className="field" style={{ maxWidth: 360 }}><label htmlFor="as-q">Código, caixa ou identificação</label><input id="as-q" className="select" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <DataTable caption="Materiais" rows={list.data?.assets ?? []} rowKey={(a) => a.id} columns={cols} state={list.isPending ? 'loading' : list.isError ? 'error' : 'ready'} pageSize={25} />
     </div>

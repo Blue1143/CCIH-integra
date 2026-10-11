@@ -5,12 +5,13 @@ import {
   IB_RESULT_LABEL, LOAD_STATUS_LABEL, LOAD_TRANSITIONS, PACKAGING_LABEL, PHYSICAL_RESULT_LABEL, TEST_RESULT_LABEL, TEST_TYPE_LABEL, decisionLabel, formatDate, todayIn,
   type CmeTestDto, type IbControl, type LoadDetail, type LoadItemDto, type LoadStatus, type RecordedTestType, type TestResult,
 } from '@ccih/domain';
-import { AlertBanner, Button, Card, ConfirmDialog, DataTable, ErrorState, Field, LoadingState, SterilizationCycle, type Column } from '@ccih/ui';
+import { AlertBanner, Button, Card, ConfirmDialog, DataTable, ErrorState, Field, LoadingState, StatusBadge, SterilizationCycle, type Column } from '@ccih/ui';
 import { ApiError } from '../../data/api/http';
 import { useSession } from '../auth/session';
 import { JustificationField, justificationError } from '../admin/shared';
 import { FormCard } from '../clinical/patient-forms';
 import { DemoTag, PageHeader, PatientLabel, Timeline, localToIso, nowLocal, useTimeZone } from '../clinical/shared';
+import { LabelHistory, LabelPrintPanel, useActiveLabels, type LabelTarget } from './labels';
 import { Attachments, CmeNav, LoadStatusBadge, RequireCme, TestResultBadge, cmeSectorName, useCme, useCmeMutation, useCmeSectors } from './shared';
 
 export function LoadDetailPage() {
@@ -98,7 +99,7 @@ function LoadDetailView() {
         {l.equipmentBowieDick ? <p className="ig-small ig-muted">Bowie-Dick do equipamento considerado: {TEST_RESULT_LABEL[l.equipmentBowieDick.result]} em {formatDate(l.equipmentBowieDick.performedAt, tz)}.</p> : null}
       </Card>
 
-      <ItemsTable items={l.itemList} />
+      <ItemsTable load={l} />
 
       <Card title="Histórico de decisões" subtitle="Não pode ser alterado. Cada decisão guarda a versão da política e a avaliação mostrada a quem decidiu." headingLevel={2}>
         <Timeline timeZone={tz} items={[...l.decisions].reverse().map((d) => ({
@@ -132,9 +133,16 @@ function TestTable({ tests, canEdit }: { tests: CmeTestDto[]; canEdit: boolean }
   );
 }
 
-function ItemsTable({ items }: { items: LoadItemDto[] }) {
+function ItemsTable({ load }: { load: LoadDetail }) {
+  const items = load.itemList;
   const tz = useTimeZone();
+  const session = useSession();
   const sectors = useCmeSectors();
+  const active = useActiveLabels('pacote', load.code);
+  const [printing, setPrinting] = useState<LabelTarget[] | null>(null);
+  const canPrint = session.can('cme:scan', 'cme:cycle:record') && session.writable && load.status !== 'rejeitada' && load.status !== 'reprocessamento';
+  const target = (i: LoadItemDto): LabelTarget => ({ id: i.id, code: i.labelCode, hasActive: active.has(i.id) });
+  const pending = items.filter((i) => !active.has(i.id));
   const cols: Column<LoadItemDto>[] = [
     { key: 'labelCode', label: 'Etiqueta', render: (i) => <span><span className="ig-mono">{i.labelCode}</span>{i.processId ? <> · <Link to={`/cme/processos/${i.processId}`} className="ig-small">trilha</Link></> : null}</span> },
     { key: 'description', label: 'Material', render: (i) => <span>{i.description}{i.quantity > 1 ? ` (${i.quantity})` : ''}{i.implant ? <span className="ig-small"> · implantável</span> : null}</span> },
@@ -147,8 +155,23 @@ function ItemsTable({ items }: { items: LoadItemDto[] }) {
       if (i.use.procedure) return <span>{when} · {i.use.procedure} <span className="ig-small ig-muted">(paciente visível só para perfis com acesso a pacientes)</span></span>;
       return <span>{when} · {cmeSectorName(sectors.data, i.use.sectorId)} <span className="ig-small ig-muted">(sem paciente vinculado)</span></span>;
     } },
+    { key: 'label', label: 'Etiqueta impressa', render: (i) => (
+      <span className="ig-row" style={{ gap: 6, alignItems: 'center' }}>
+        {active.has(i.id) ? <StatusBadge status="ok">Em uso</StatusBadge> : <StatusBadge status="neutral">Não impressa</StatusBadge>}
+        {canPrint ? <Button size="sm" onClick={() => setPrinting([target(i)])} aria-label={`${active.has(i.id) ? 'Reimprimir' : 'Imprimir'} etiqueta ${i.labelCode}`}>{active.has(i.id) ? 'Reimprimir' : 'Imprimir'}</Button> : null}
+      </span>
+    ) },
   ];
-  return <DataTable caption="Pacotes da carga" rows={items} rowKey={(i) => i.id} columns={cols} />;
+  return (
+    <>
+      <Card title="Pacotes da carga" subtitle="Cada pacote recebe a etiqueta na montagem da carga, com lote, equipamento e validade." headingLevel={2}
+        actions={canPrint && pending.length ? <Button icon="printer" onClick={() => setPrinting(pending.map(target))}>Imprimir etiquetas pendentes ({pending.length})</Button> : null}>
+        <DataTable caption="Pacotes da carga" rows={items} rowKey={(i) => i.id} columns={cols} />
+      </Card>
+      {printing ? <LabelPrintPanel key={printing.map((t) => t.id).join()} entity="pacote" targets={printing} onClose={() => setPrinting(null)} /> : null}
+      {items.length ? <LabelHistory title="Etiquetas da carga" entity="pacote" q={load.code} /> : null}
+    </>
+  );
 }
 
 function StartForm({ load, onDone }: { load: LoadDetail; onDone: () => void }) {

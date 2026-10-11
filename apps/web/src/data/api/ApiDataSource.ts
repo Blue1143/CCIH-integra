@@ -128,6 +128,11 @@ export class ApiDataSource implements CcihDataSource {
       processes: (q) => http.get('/cme/processes', q),
       process: (p) => http.get(`/cme/processes/${id(p)}`),
       scanEvents: (q) => http.get('/cme/scan-events', q),
+      labelLayouts: () => http.get('/cme/label-layouts'),
+      saveLabelLayout: (lid, input) => (lid ? http.send('PUT', `/cme/label-layouts/${id(lid)}`, input) : http.send('POST', '/cme/label-layouts', input)),
+      labelPrints: (q) => http.get('/cme/labels', q),
+      printLabels: (input) => http.send('POST', '/cme/labels/print', input),
+      cancelLabel: (l, reason) => http.send('POST', `/cme/labels/${id(l)}/cancel`, { reason }),
     };
     this.realtime = { config: () => http.get('/realtime'), eventsUrl: `${base}/events` };
     this.inbox = {

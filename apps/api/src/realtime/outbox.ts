@@ -28,6 +28,7 @@ const BY_ENTITY: Record<string, { topic: RealtimeTopic; permission: Permission }
   sterilization_load: T('cme', 'cme:view'), sterilization_test: T('cme', 'cme:view'), sterilizer: T('cme', 'cme:view'), material_use: T('cme', 'cme:view'),
   instrument_set: T('cme', 'cme:view'), instrument_asset: T('cme', 'cme:view'), cme_process: T('cme', 'cme:view'), scan_station: T('cme', 'cme:view'),
   station_device: T('cme', 'cme:view'), cme_flow_config: T('cme', 'cme:view'), load_release_policy: T('cme', 'cme:view'),
+  label_layout: T('cme', 'cme:view'), label_print: T('cme', 'cme:view'),
   nonconformity: T('qualidade', 'quality:view'), action_plan: T('qualidade', 'quality:view'), quality_audit: T('qualidade', 'quality:view'), bundle_audit: T('qualidade', 'quality:view'),
   bundle_template: T('qualidade', 'quality:view'), hand_hygiene_observation: T('qualidade', 'quality:view'), training: T('qualidade', 'quality:view'),
   training_session: T('qualidade', 'quality:view'), supply: T('qualidade', 'quality:view'), supply_movement: T('qualidade', 'quality:view'),

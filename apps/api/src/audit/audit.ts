@@ -11,7 +11,7 @@ import { publish, topicOfEntity } from '../realtime/outbox';
 export type AuditAction =
   | 'login_success' | 'login_failure' | 'logout' | 'session_expired' | 'access_denied'
   | 'create' | 'update' | 'delete' | 'validate' | 'unlock' | 'export' | 'seed'
-  | 'status_change' | 'view_identified' | 'consolidate' | 'upload' | 'download';
+  | 'status_change' | 'view_identified' | 'consolidate' | 'upload' | 'download' | 'print' | 'reprint' | 'cancel';
 
 export interface AuditActor {
   institutionId: string | null;

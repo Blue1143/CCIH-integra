@@ -555,6 +555,24 @@ export interface UserNotificationTable {
   link: string | null; data_origin: Origin; created_at: CreatedAt; read_at: Date | null;
 }
 
+export interface LabelLayoutTable {
+  id: Generated<string>; institution_id: string; name: string; entity: 'pacote' | 'ativo' | 'processo';
+  width_mm: ColumnType<string, number | string, number | string>; height_mm: ColumnType<string, number | string, number | string>;
+  margin_mm: ColumnType<string, number | string, number | string>; dpi: number; bar_height_mm: ColumnType<string, number | string, number | string>;
+  fields: string[]; is_default: Generated<boolean>; active: Generated<boolean>; data_origin: Origin;
+  created_at: CreatedAt; updated_at: Generated<Date>; row_version: Generated<number>;
+}
+
+export interface LabelPrintTable {
+  id: Generated<string>; institution_id: string; batch_id: string; entity: 'pacote' | 'ativo' | 'processo'; entity_id: string; code: string;
+  kind: 'impressao' | 'reimpressao'; output: 'navegador' | 'zpl'; reason: string | null; replaces_id: string | null; layout_id: string;
+  layout: Json; content: Json; printed_by: string; printed_by_name: string; printed_at: CreatedAt; data_origin: Origin;
+}
+
+export interface LabelCancelTable {
+  id: Generated<string>; institution_id: string; label_print_id: string; reason: string; cancelled_by: string; cancelled_by_name: string; cancelled_at: CreatedAt;
+}
+
 export interface InstrumentAssetTable {
   id: Generated<string>; institution_id: string; set_id: string; code: string; tag: string | null;
   status: ColumnType<'ativo' | 'manutencao' | 'baixado', 'ativo' | 'manutencao' | 'baixado' | undefined, 'ativo' | 'manutencao' | 'baixado'>;
@@ -656,4 +674,7 @@ export interface DB {
   station_device: StationDeviceTable;
   cme_process: CmeProcessTable;
   cme_scan_event: CmeScanEventTable;
+  label_layout: LabelLayoutTable;
+  label_print: LabelPrintTable;
+  label_cancel: LabelCancelTable;
 }
