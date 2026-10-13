@@ -302,13 +302,18 @@ Todas aditivas, com `down`, sem reescrever dados:
 
 | Nº | Conteúdo |
 | --- | --- |
-| 0005 | `instrument_asset`, `cme_process`, `scan_station`, `station_token`, `barcode_format`, `cme_scan_event` (somente inserção), `load_item.process_id` (opcional), lavadora como tipo de equipamento |
-| 0006 | Alertas v2: colunas novas + `alert_action`, com preenchimento da categoria a partir do tipo |
-| 0007 | `event_outbox` + trigger `pg_notify` |
-| 0008 | `label_layout`, `label_print`, `integration_system`, `integration_message`, `external_identifier` |
-| 0009 | Anexos: `scan_status`, `storage_backend`, `key_version` |
-| 0010 | `sterilization_load_revision`, `equipment_cycle_import`, `equipment_cycle_import_attempt` |
-| 0011 | `rule_parameter_version`, `load_release_policy_version` + preenchimento da versão 1 |
+| 0005 | `instrument_asset`, `cme_process`, `scan_station`, `station_device`, `cme_scan_event` (somente inserção), `load_item.process_id` (opcional), fase de montagem da carga — aplicada |
+| 0006 | Uso sem saída gera não conformidade + `user_notification` — aplicada |
+| 0007 | Alertas v2: colunas novas + `alert_action` — aplicada |
+| 0008 | `event_outbox` + trigger `pg_notify` — aplicada |
+| 0009 | Funções e permissões (RBAC) — aplicada |
+| 0010 | `label_layout`, `label_print`, `label_cancel` — aplicada |
+| 0011 | Anexos: `attachment_scan`, `storage_backend`, `encryption`/`key_id`, `attachment_copy` — aplicada |
+| 0012 | `integration_system`, `integration_message`, `external_identifier` (E1) |
+| 0013 | `sterilization_load_revision`, `equipment_cycle_import`, `equipment_cycle_import_attempt` (H1/H2) |
+| 0014 | `rule_parameter_version`, `load_release_policy_version` + preenchimento da versão 1 (I1) |
+
+A numeração foi deslocada em relação à primeira versão deste plano porque a C5 (0006) e o RBAC (0009) entraram antes.
 
 ### 2.14 Permissões novas
 
@@ -342,15 +347,15 @@ Todas aditivas, com `down`, sem reescrever dados:
 | **C2** | Migração 0005 + estações (cadastro, pareamento, token) + ativos + serviço `scan` (recepção → embalagem) | Testes de API (aceita/recusa/idempotência/estação) |
 | **C3** | Carga a partir de leituras (etapa 6), armazenamento, separação, saída com destino, devolução; uso cirúrgico exige saída (com período de transição configurável) | Continuidade recepção → uso; bloqueios |
 | **C4** | Interface: `ScanInput` (HID + câmera), telas de estação por etapa, linha do tempo do processo, rastreabilidade estendida | Testes de interface + E2E com leitor simulado por teclado |
-| **D1** | Alertas v2 (0006): categorias, gravidade crítica, ciclo de ações, filtros, bloqueio | Testes de API/interface |
+| **D1** | Alertas v2 (0007): categorias, gravidade crítica, ciclo de ações, filtros, bloqueio | Testes de API/interface |
 | **D2** | Regras de quebra de processo com prazos configuráveis + exceção autorizada | Testes de API |
-| **G1** | Outbox + SSE (0007), filtro por permissão/escopo, replay, indicador de conexão, modo periódico | Testes de API e E2E com duas sessões |
-| **F1** | Code 128, layouts, impressão pelo navegador, ZPL, reimpressão auditada (0008 parte) | Decodificação automática; roteiro físico pendente |
-| **F2** | Anexos: interface de armazenamento, criptografia, `scan_status`, ClamAV (0009) | EICAR/simulado; download bloqueado sem `limpo` |
-| **E1** | Camada de integração, `external_identifier`, inbox idempotente, adaptador CSV e de teste | Testes de idempotência e de não exposição de dados |
-| **H1** | Correção versionada do ciclo (0010 parte) | Histórico preservado; reavaliação de carga liberada |
-| **H2** | Importação de ciclos (0010 parte) | Idempotência; não libera |
-| **I1** | Parâmetros governados (0011) | Propor × aprovar; selo de demonstração |
+| **G1** | Outbox + SSE (0008), filtro por permissão/escopo, replay, indicador de conexão, modo periódico | Testes de API e E2E com duas sessões |
+| **F1** | Code 128, layouts, impressão pelo navegador, ZPL, reimpressão auditada (0010) | Decodificação automática; roteiro físico pendente |
+| **F2** | Anexos: interface de armazenamento, criptografia, situação da verificação, ClamAV (0011) | EICAR/simulado; download bloqueado sem `limpo` |
+| **E1** | Camada de integração (0012), `external_identifier`, inbox idempotente, adaptador CSV e de teste | Testes de idempotência e de não exposição de dados |
+| **H1** | Correção versionada do ciclo (0013 parte) | Histórico preservado; reavaliação de carga liberada |
+| **H2** | Importação de ciclos (0013 parte) | Idempotência; não libera |
+| **I1** | Parâmetros governados (0014) | Propor × aprovar; selo de demonstração |
 | **G2** | Nuvem/contingência: contêineres, `/api/ready`, documentação de backup/DR/retenção | Revisão; sem declarar ambiente em operação |
 | **I2** | Validação final, revisão de segurança, relatório | Todas as suítes + E2E no modo CI |
 
@@ -419,7 +424,12 @@ Cada etapa termina com lint, typecheck, testes, build, commit e relatório (func
 | D2 | Concluída | Testes de domínio (nenhum alerta sem valor institucional; cada prazo vale só para a sua etapa; eventos) e de API contra PostgreSQL (prazo não configurado não alerta; prazo configurado alerta e o alerta se encerra sozinho com a leitura seguinte; carga aguardando decisão; leituras recusadas repetidas; estação incompatível; tentativa de saída sem liberação) |
 | G1 | Concluída | Migração 0008; testes de API com servidor real (só após commit; permissão; escopo de setor; destinatário pessoal; reenvio por Last-Event-ID; reset quando a lacuna é antiga; encerramento ao fim da sessão; modo periódico), de interface (invalidação por tópico sem duplicar; queda → periódico) e E2E com duas sessões |
 | F1 | Concluída (validação física pendente) | Migração 0010; testes de domínio (ida e volta de cada código pelo decodificador próprio **e por um leitor independente, ZXing**; leitura do SVG gerado; ajuste do módulo a pontos inteiros da impressora; layouts que não comportam o código ou os campos; ZPL com a mesma sequência de subconjuntos e sem injeção de comandos), de API contra PostgreSQL (conteúdo lido dos registros e sem paciente; segunda impressão recusada; reimpressão só com motivo, substituindo a anterior; cancelamento só da etiqueta em uso; impressão e cancelamento imutáveis; lote em ZPL; carga rejeitada recusada; permissões), de interface e **E2E que imprime no Chromium, captura a etiqueta em modo de impressão e a decodifica com ZXing** |
-| F2 em diante | Pendentes | — |
+| F2 | Concluída (provedor S3 real e base oficial do ClamAV pendentes) | Migração 0011; testes de domínio (disponibilidade por situação), da assinatura S3 com o vetor oficial da AWS, da cifragem (repouso, adulteração, nome trocado, chave anterior), do adaptador ClamAV com clamd simulado **e com o ClamAV 1.5.4 real (EICAR em PDF detectado, PDF limpo aprovado)**, e de API (ameaça recusada sem gravar nada; falha do antivírus deixa indisponível até nova verificação; arquivo antigo bloqueado e descartado se infectado; adulteração no disco bloqueada e registrada; migração simulada × aplicada com conferência e origem preservada; verificação em lote; histórico imutável) e de interface |
+| F3 em diante | Pendentes | — |
+
+**O que F2 entrega:** veja [03-ANEXOS-OPERACAO.md](03-ANEXOS-OPERACAO.md). Em resumo: verificação ClamAV antes de gravar (ameaça recusada, sem gravar), situação de cada arquivo com a regra aprovada em 09/10/2026 (sem antivírus: "não verificado", sinalizado; com antivírus: só abre depois de limpo), "Verificar novamente", cifragem AES-256-GCM com chaves nomeadas e troca de chave, conferência de integridade em toda leitura, armazenamento local ou compatível com S3, comando `attachments verificar | migrar` com simulação, conferência e origem preservada.
+
+**Diferença em relação ao plano:** o plano previa exigir antivírus em produção; prevaleceu a decisão de 09/10/2026 ("antivírus somente quando disponível"). Em compensação, a cifragem dos anexos é obrigatória em produção. Links temporários do armazenamento não são usados: o download passa pela API para manter permissão e log em todo acesso. O endpoint de prontidão (`/api/ready`) com armazenamento e antivírus fica para G2.
 
 **O que F1 entrega:**
 - Codificador Code 128 próprio (`packages/domain/src/cme/barcode.ts`): subconjuntos B e C (sequências de dígitos em pares), dígito de verificação, zonas de silêncio de 10 módulos, SVG e decodificador usado como conferência.

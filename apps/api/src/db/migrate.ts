@@ -10,6 +10,7 @@ import * as m0007 from './migrations/0007_alerts_v2';
 import * as m0008 from './migrations/0008_event_outbox';
 import * as m0009 from './migrations/0009_rbac_functions';
 import * as m0010 from './migrations/0010_labels';
+import * as m0011 from './migrations/0011_attachment_security';
 
 /** Migrations are registered statically (works the same under tsx, tests and the bundled build). */
 const MIGRATIONS: Record<string, Migration> = {
@@ -23,13 +24,14 @@ const MIGRATIONS: Record<string, Migration> = {
   '0008_event_outbox': m0008,
   '0009_rbac_functions': m0009,
   '0010_labels': m0010,
+  '0011_attachment_security': m0011,
 };
 
 export const APPEND_ONLY_TABLES = [
   'iras_case_status', 'ccih_note', 'culture_result', 'isolate', 'susceptibility',
   'quality_audit_status', 'nonconformity_status', 'supply_movement', 'ssi_followup', 'bundle_audit_answer',
   'load_item', 'sterilization_test', 'load_release_decision', 'attachment', 'cme_scan_event', 'alert_action',
-  'label_print', 'label_cancel',
+  'label_print', 'label_cancel', 'attachment_scan', 'attachment_copy',
 ] as const;
 
 const provider: MigrationProvider = { getMigrations: async () => MIGRATIONS };

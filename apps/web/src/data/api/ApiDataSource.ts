@@ -111,6 +111,8 @@ export class ApiDataSource implements CcihDataSource {
       voidUse: (u, justification) => ok(http.send('POST', `/material-uses/${id(u)}/void`, { justification })),
       upload: (entity, entityId, file) => http.upload(`/attachments?entity=${entity}&entityId=${id(entityId)}`, file),
       attachmentUrl: (a) => `${base}/attachments/${id(a)}`,
+      attachmentPolicy: () => http.get('/attachments/policy'),
+      rescanAttachment: (a) => http.send('POST', `/attachments/${id(a)}/scan`, {}),
       startCycle: (l, input) => ok(http.send('POST', `/cme/loads/${id(l)}/start`, input)),
       sectors: () => http.get('/cme/sectors'),
       flowConfig: () => http.get('/cme/flow-config'),

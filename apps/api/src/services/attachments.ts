@@ -1,9 +1,9 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { basename } from 'node:path';
 import type { AttachmentDto } from '@ccih/domain';
 import { HttpError } from '../http/errors';
 import type { Db } from '../repositories/clinical';
+import { blobKey } from './storage/blob-store';
+import type { BlobLocation } from './storage/vault';
 
 /**
  * Uploaded files: the type is decided by the content (magic bytes), never by the name or the
@@ -51,37 +51,36 @@ export function safeFileName(raw: string | undefined, mime: AttachmentMime): str
   return name;
 }
 
-export class AttachmentStore {
-  private readonly root: string;
-  constructor(dir: string) {
-    this.root = resolve(dir);
-  }
-
-  private path(institutionId: string, key: string) {
-    if (!/^[0-9a-f-]{36}$/.test(institutionId) || !/^[0-9a-f-]{36}$/.test(key)) throw new Error('Chave de anexo inválida');
-    return join(this.root, institutionId, key);
-  }
-
-  async save(institutionId: string, buf: Buffer): Promise<{ key: string; sha256: string }> {
-    const key = randomUUID();
-    await mkdir(join(this.root, institutionId), { recursive: true, mode: 0o700 });
-    await writeFile(this.path(institutionId, key), buf, { mode: 0o600, flag: 'wx' });
-    return { key, sha256: createHash('sha256').update(buf).digest('hex') };
-  }
-
-  read(institutionId: string, key: string): Promise<Buffer> {
-    return readFile(this.path(institutionId, key));
-  }
+/** Where the content of an attachment is now: the latest copy made by the migration command, or where it was uploaded. */
+export async function attachmentLocation(db: Db, a: { id: string; institution_id: string; storage_backend: 'local' | 's3'; storage_key: string; encryption: 'none' | 'aes-256-gcm'; key_id: string | null; sha256: string }): Promise<BlobLocation> {
+  const copy = await db.selectFrom('attachment_copy').select(['storage_backend', 'storage_key', 'encryption', 'key_id']).where('attachment_id', '=', a.id).orderBy('copied_at', 'desc').limit(1).executeTakeFirst();
+  const at = copy ?? a;
+  return { backend: at.storage_backend, key: blobKey(a.institution_id, at.storage_key), encryption: at.encryption, keyId: at.key_id, sha256: a.sha256 };
 }
+
+/** Latest antivirus result of each attachment. */
+export async function latestScans(db: Db, ids: string[]): Promise<Map<string, { status: 'limpo' | 'infectado' | 'erro'; scannedAt: Date }>> {
+  if (!ids.length) return new Map();
+  const rows = await db.selectFrom('attachment_scan').select(['attachment_id', 'status', 'scanned_at']).where('attachment_id', 'in', ids).orderBy('scanned_at', 'desc').execute();
+  const out = new Map<string, { status: 'limpo' | 'infectado' | 'erro'; scannedAt: Date }>();
+  for (const r of rows) if (!out.has(r.attachment_id)) out.set(r.attachment_id, { status: r.status, scannedAt: r.scanned_at });
+  return out;
+}
+
+export const attachmentDto = (a: { id: string; file_name: string; mime: string; size_bytes: number; uploaded_by_name: string; created_at: Date }, scan: { status: 'limpo' | 'infectado' | 'erro'; scannedAt: Date } | undefined): AttachmentDto => ({
+  id: a.id, fileName: a.file_name, mime: a.mime, size: a.size_bytes, uploadedBy: a.uploaded_by_name, uploadedAt: a.created_at.toISOString(),
+  scan: scan?.status ?? null, scannedAt: scan ? scan.scannedAt.toISOString() : null,
+});
 
 /** Attachments of several records of one kind, by record id. */
 export async function attachmentsFor(db: Db, entity: AttachmentEntity, ids: string[]): Promise<Map<string, AttachmentDto[]>> {
   const out = new Map<string, AttachmentDto[]>();
   if (!ids.length) return out;
   const rows = await db.selectFrom('attachment').selectAll().where('entity', '=', entity).where('entity_id', 'in', ids).orderBy('created_at').execute();
+  const scans = await latestScans(db, rows.map((r) => r.id));
   for (const a of rows) {
     const list = out.get(a.entity_id) ?? [];
-    list.push({ id: a.id, fileName: a.file_name, mime: a.mime, size: a.size_bytes, uploadedBy: a.uploaded_by_name, uploadedAt: a.created_at.toISOString() });
+    list.push(attachmentDto(a, scans.get(a.id)));
     out.set(a.entity_id, list);
   }
   return out;

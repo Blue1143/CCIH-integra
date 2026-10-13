@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { LOAD_STATUS_LABEL, testResultLabel, type AttachmentDto, type CmeSectorDto, type LoadStatus, type SterilizationTestType, type Status, type TestResult } from '@ccih/domain';
+import { ATTACHMENT_SCAN_LABEL, LOAD_STATUS_LABEL, attachmentAvailability, attachmentCanRescan, attachmentScanStatus, testResultLabel, type AttachmentDto, type AttachmentScanStatus, type CmeSectorDto, type LoadStatus, type SterilizationTestType, type Status, type TestResult } from '@ccih/domain';
 import { AlertBanner, Button, FormMessage, LOAD_TONE, StatusBadge, SubNav } from '@ccih/ui';
 import { useDataSource } from '../../data/source';
 import type { AttachmentEntity, CmePort } from '../../data/port';
@@ -92,6 +92,9 @@ export function Attachments({ entity, entityId, files, canUpload, refresh = CME_
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const m = useAdminMutation((file: File) => cme.upload(entity, entityId, file), refresh);
+  const policy = useQuery({ queryKey: ['attachments', 'policy'], queryFn: () => cme.attachmentPolicy(), staleTime: 5 * 60_000 });
+  const rescan = useAdminMutation((id: string) => cme.rescanAttachment(id), refresh);
+  const antivirus = policy.data?.antivirus ?? 'off';
   const pick = (file: File | undefined) => {
     setError(null);
     if (!file) return;
@@ -103,7 +106,21 @@ export function Attachments({ entity, entityId, files, canUpload, refresh = CME_
     <div className="cme-files">
       {files.length ? (
         <ul className="cme-file-list">
-          {files.map((f) => <li key={f.id}><a href={cme.attachmentUrl(f.id)} download>{f.fileName}</a> <span className="ig-small ig-muted">{sizeLabel(f.size)} · {f.uploadedBy}</span></li>)}
+          {files.map((f) => {
+            const status = attachmentScanStatus(f.scan, antivirus);
+            const { downloadable, reason } = attachmentAvailability(status, antivirus);
+            return (
+              <li key={f.id}>
+                {downloadable && policy.isSuccess ? <a href={cme.attachmentUrl(f.id)} download>{f.fileName}</a> : <span>{f.fileName}</span>}{' '}
+                <span className="ig-small ig-muted">{sizeLabel(f.size)} · {f.uploadedBy}</span>{' '}
+                {policy.isSuccess ? <StatusBadge status={SCAN_TONE[status]}>{ATTACHMENT_SCAN_LABEL[status]}</StatusBadge> : null}
+                {reason ? <span className="ig-small ig-muted"> {reason}</span> : null}
+                {canUpload && session.writable && attachmentCanRescan(status, antivirus) ? (
+                  <> <Button size="sm" disabled={rescan.mutation.isPending} onClick={() => rescan.mutation.mutate(f.id)} aria-label={`Verificar novamente ${f.fileName}`}>Verificar novamente</Button></>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
       {canUpload && session.writable ? (
@@ -113,6 +130,9 @@ export function Attachments({ entity, entityId, files, canUpload, refresh = CME_
         </>
       ) : null}
       {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+      {rescan.formError ? <FormMessage tone="error">{rescan.formError}</FormMessage> : null}
     </div>
   );
 }
+
+const SCAN_TONE: Record<AttachmentScanStatus, Status> = { limpo: 'ok', nao_verificado: 'neutral', pendente: 'warn', erro: 'warn', infectado: 'crit' };

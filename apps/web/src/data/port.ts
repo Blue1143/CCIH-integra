@@ -3,7 +3,7 @@ import type {
   MetricKey, OrgPayload, Paged, PatientDetail, PatientSummary, Permission, Procedure, Professional, SterilizationTestType, SurgeryDetail, SurgerySummary, WithProvenance,
   AlertDetail, AlertDto, AlertSummary, BundleAuditDto, BundleSummary, BundleTemplateDto, HandHygieneDto, HandHygieneSummaryRow, NonconformityDetail, NonconformityDto,
   QualityAuditDetail, QualityAuditDto, StaffMember, SupplyDto, SupplyMovementDto, SurveillanceRow, TrainingCoveragePayload, TrainingDto, TrainingSessionDto,
-  AttachmentDto, CmeOverview, CmeTestDto, EquipmentStatus, IbControl, InstrumentSetDto, LoadDetail, LoadStatus, LoadSummary, PackagingType, RecordedTestType,
+  AttachmentDto, AttachmentPolicyDto, CmeOverview, CmeTestDto, EquipmentStatus, IbControl, InstrumentSetDto, LoadDetail, LoadStatus, LoadSummary, PackagingType, RecordedTestType,
   SterilizerDto, SterilizerType, TestResult, TraceResult,
   LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
   AssetDto, CmeSectorDto, UseRecorded, UserNotificationDto, RoleCode, UserAccessInput, UserAccountDto, UserHistoryEntry, FlowConfigDto, InputMethod, ProcessDetail, ProcessStep, ProcessSummaryDto, ScanConfig, ScanEventDto, ScanResponse, StationDto, Symbology,
@@ -302,6 +302,8 @@ export interface CmePort {
   upload(entity: AttachmentEntity, entityId: string, file: File): Promise<AttachmentDto>;
   /** Same-origin download link (the session cookie authorizes it; the API logs it). */
   attachmentUrl(id: string): string;
+  attachmentPolicy(): Promise<AttachmentPolicyDto>;
+  rescanAttachment(id: string): Promise<AttachmentDto>;
   startCycle(id: string, input: { startedAt: string; rowVersion: number }): Promise<void>;
   sectors(): Promise<{ sectors: CmeSectorDto[] }>;
   flowConfig(): Promise<FlowConfigDto>;

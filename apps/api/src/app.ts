@@ -20,6 +20,8 @@ import { qualityRoutes } from './routes/quality';
 import { trainingSupplyRoutes } from './routes/training-supplies';
 import { alertRoutes } from './routes/alerts';
 import { attachmentRoutes } from './routes/attachments';
+import { AttachmentVault } from './services/storage/vault';
+import { scannerFromEnv, type Scanner } from './services/storage/antivirus';
 import { cmeRoutes } from './routes/cme';
 import { cmeFlowRoutes } from './routes/cme-flow';
 import { cmeLabelRoutes } from './routes/cme-labels';
@@ -34,6 +36,9 @@ export interface AppOptions {
   logger?: boolean;
   /** Keep-alive interval of the real-time stream (tests shorten it). */
   realtimeHeartbeatMs?: number;
+  /** Attachment storage and antivirus (tests replace them with local doubles). */
+  vault?: AttachmentVault;
+  scanner?: Scanner;
 }
 
 export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
@@ -107,7 +112,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       await api.register(alertRoutes, { db });
       await api.register(notificationRoutes, { db });
       await api.register(realtimeRoutes, { db, env, hub, ...(opts.realtimeHeartbeatMs ? { heartbeatMs: opts.realtimeHeartbeatMs } : {}) });
-      await api.register(attachmentRoutes, { db, env });
+      await api.register(attachmentRoutes, { db, env, vault: opts.vault ?? AttachmentVault.fromEnv(env), scanner: opts.scanner ?? scannerFromEnv(env) });
       await api.register(cmeRoutes, { db });
       await api.register(cmeFlowRoutes, { db, env });
       await api.register(cmeLabelRoutes, { db });

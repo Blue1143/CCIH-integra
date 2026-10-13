@@ -539,6 +539,17 @@ export interface AttachmentTable {
   id: Generated<string>; institution_id: string; entity: 'sterilization_test' | 'training_session'; entity_id: string; file_name: string;
   mime: 'application/pdf' | 'image/png' | 'image/jpeg'; size_bytes: number; sha256: string; storage_key: string; uploaded_by: string | null;
   uploaded_by_name: string; created_at: CreatedAt;
+  storage_backend: ColumnType<'local' | 's3', 'local' | 's3' | undefined, never>; encryption: ColumnType<'none' | 'aes-256-gcm', 'none' | 'aes-256-gcm' | undefined, never>; key_id: ColumnType<string | null, string | null | undefined, never>;
+}
+
+export interface AttachmentScanTable {
+  id: Generated<string>; institution_id: string; attachment_id: string; status: 'limpo' | 'infectado' | 'erro'; engine: string; signature: string | null;
+  detail: string | null; requested_by: string | null; requested_by_name: string; scanned_at: CreatedAt;
+}
+
+export interface AttachmentCopyTable {
+  id: Generated<string>; institution_id: string; attachment_id: string; storage_backend: 'local' | 's3'; storage_key: string; encryption: 'none' | 'aes-256-gcm';
+  key_id: string | null; sha256: string; operator: string; copied_at: CreatedAt;
 }
 
 type ProcessStepCol = 'recepcao' | 'limpeza' | 'inspecao' | 'preparo' | 'embalagem' | 'esterilizacao' | 'liberacao' | 'armazenamento' | 'separacao' | 'distribuicao' | 'devolucao';
@@ -677,4 +688,6 @@ export interface DB {
   label_layout: LabelLayoutTable;
   label_print: LabelPrintTable;
   label_cancel: LabelCancelTable;
+  attachment_scan: AttachmentScanTable;
+  attachment_copy: AttachmentCopyTable;
 }

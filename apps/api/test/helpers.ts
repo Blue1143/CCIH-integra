@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
-import { buildApp } from '../src/app';
+import { buildApp, type AppOptions } from '../src/app';
 import { createDb } from '../src/db/client';
 import { grantAppRole, migrateToLatest, resetSchema } from '../src/db/migrate';
 import { seedDemo } from '../src/db/seed';
@@ -26,7 +26,7 @@ export interface TestContext {
 }
 
 /** Fresh schema + synthetic seed in the dedicated test database. */
-export async function setupTestApp(overrides: Record<string, string> = {}, appOptions: { realtimeHeartbeatMs?: number } = {}): Promise<TestContext> {
+export async function setupTestApp(overrides: Record<string, string> = {}, appOptions: Partial<Pick<AppOptions, 'realtimeHeartbeatMs' | 'vault' | 'scanner'>> = {}): Promise<TestContext> {
   const appUrl = process.env.TEST_DATABASE_URL;
   const ownerUrl = process.env.TEST_DATABASE_OWNER_URL;
   if (!appUrl || !ownerUrl) throw new Error('Defina TEST_DATABASE_URL e TEST_DATABASE_OWNER_URL (veja apps/api/.env.example).');

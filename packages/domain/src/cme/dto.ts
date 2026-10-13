@@ -19,7 +19,11 @@ export interface InstrumentSetDto {
   packaging: PackagingType; implant: boolean; active: boolean; rowVersion: number;
 }
 
-export interface AttachmentDto { id: string; fileName: string; mime: string; size: number; uploadedBy: string; uploadedAt: string }
+export interface AttachmentDto {
+  id: string; fileName: string; mime: string; size: number; uploadedBy: string; uploadedAt: string;
+  /** Latest antivirus result, or "não verificado"/"pendente" when never checked (see attachmentScanStatus). */
+  scan: 'limpo' | 'infectado' | 'erro' | null; scannedAt: string | null;
+}
 
 export interface CmeTestDto {
   id: string; type: RecordedTestType; result: TestResult; performedAt: string; indicatorLot: string | null; indicatorExpiry: string | null;
