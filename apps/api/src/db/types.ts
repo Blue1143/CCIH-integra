@@ -17,6 +17,9 @@ export interface InstitutionTable {
   timezone: string;
   data_origin: DataOriginColumn;
   created_at: CreatedAt;
+  organization_type: ColumnType<'hospitalar' | 'consultoria', 'hospitalar' | 'consultoria' | undefined, never>;
+  legal_name: ColumnType<string | null, string | null | undefined, string | null>;
+  cnpj: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
 export interface UnitTable {

@@ -231,7 +231,19 @@ export function apprenticeMarkersOf(grants: readonly string[]): Array<[Apprentic
 }
 
 /** Who is acting on accounts: the permissions of the manager and whether it is the creator account. */
-export interface Grantor { permissions: readonly string[]; isFounder: boolean }
+export interface Grantor {
+  permissions: readonly string[];
+  isFounder: boolean;
+  /** Business model of the grantor's organization (default: hospital). Profiles of another model are never assignable. */
+  organizationType?: 'hospitalar' | 'consultoria';
+}
+
+/** Models in which each profile can be assigned. The current hospital profiles stay hospital-only. */
+export const ROLE_MODELS: Record<RoleCode, Array<'hospitalar' | 'consultoria'>> = {
+  admin: ['hospitalar', 'consultoria'],
+  enf_ccih: ['hospitalar'], tec_ccih: ['hospitalar'], adm_ccih: ['hospitalar'], cme: ['hospitalar'], tec_cme: ['hospitalar'], adm_cme: ['hospitalar'],
+  enf_qualidade: ['hospitalar'], tec_qualidade: ['hospitalar'], aprendiz: ['hospitalar'], infectologista: ['hospitalar'], auditor: ['hospitalar'], gestor: ['hospitalar'], consulta: ['hospitalar'],
+};
 
 const has = (g: Grantor, p: Permission) => g.permissions.includes(p);
 /** Modules whose users this grantor administers (a system administrator: all). */
@@ -249,6 +261,11 @@ export function managedModules(g: Grantor): Array<'ccih' | 'cme'> | 'all' | null
  * another administrator.
  */
 export function assignableRoles(g: Grantor): RoleCode[] {
+  const model = g.organizationType ?? 'hospitalar';
+  return assignableInAnyModel(g).filter((r) => ROLE_MODELS[r].includes(model));
+}
+
+function assignableInAnyModel(g: Grantor): RoleCode[] {
   const scope = managedModules(g);
   if (!scope) return [];
   if (scope === 'all') return (Object.keys(ROLE_LABEL) as RoleCode[]).filter((r) => r !== 'admin' || g.isFounder);

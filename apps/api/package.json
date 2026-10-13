@@ -15,7 +15,8 @@
     "db:seed": "tsx --env-file-if-exists=.env src/db/cli.ts seed",
     "audit:verify": "tsx --env-file-if-exists=.env src/db/cli.ts verify-audit",
     "admin:bootstrap": "tsx --env-file-if-exists=.env src/cli/bootstrap-admin.ts",
-    "attachments": "tsx --env-file-if-exists=.env src/cli/attachments.ts"
+    "attachments": "tsx --env-file-if-exists=.env src/cli/attachments.ts",
+    "org:create": "tsx --env-file-if-exists=.env src/cli/create-organization.ts"
   },
   "dependencies": {
     "@ccih/demo-data": "0.1.0",

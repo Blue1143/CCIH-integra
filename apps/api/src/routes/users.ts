@@ -42,7 +42,7 @@ const ListQuery = z.object({
 const temporaryPassword = () => `Tmp-${randomBytes(9).toString('base64url')}-${randomBytes(2).toString('hex')}9a!`;
 
 const MANAGE = ['users:manage', 'users:manage:ccih', 'users:manage:cme'] as const;
-const grantorOf = (auth: AuthContext): Grantor & { userId: string } => ({ permissions: auth.permissions, isFounder: auth.isFounder, userId: auth.userId });
+const grantorOf = (auth: AuthContext): Grantor & { userId: string } => ({ permissions: auth.permissions, isFounder: auth.isFounder, organizationType: auth.organizationType, userId: auth.userId });
 
 type Db = Kysely<DB> | Transaction<DB>;
 

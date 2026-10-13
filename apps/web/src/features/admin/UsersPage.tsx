@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ACCOUNT_STATUS_LABEL, ADDITIONAL_ROLES, APPRENTICE_AREAS, APPRENTICE_LEVEL_LABEL, FUNCTION_ROLES, PERMISSIONS, PROFESSIONAL_CATEGORY_LABEL, ROLE_LABEL,
+  ACCOUNT_STATUS_LABEL, ADDITIONAL_ROLES, rolesOfModel, APPRENTICE_AREAS, APPRENTICE_LEVEL_LABEL, FUNCTION_ROLES, PERMISSIONS, PROFESSIONAL_CATEGORY_LABEL, ROLE_LABEL,
   apprenticeMarkerPermissions, apprenticeMarkersOf, checkAccess, formatDate, grantableApprenticeAreas, grantablePermissions, todayIn,
   type AccountStatus, type ApprenticeArea, type ApprenticeLevel, type Grantor, type Permission, type ProfessionalCategory, type RoleCode, type Status, type UserAccessInput,
 } from '@ccih/domain';
@@ -49,6 +49,8 @@ export function UsersPage() {
   const sectorName = (id: string) => sectors.find((s) => s.id === id)?.name ?? 'Setor fora do seu escopo';
   const roleName = (code: string | null) => (code ? (ROLE_LABEL[code as RoleCode] ?? code) : '—');
   const setFilter = (k: keyof Filters, v: string) => setFilters({ ...filters, [k]: v });
+  const hospital = session.model === 'hospitalar';
+  const filterRoles: RoleCode[] = hospital ? [...FUNCTION_ROLES, 'admin', ...ADDITIONAL_ROLES] : rolesOfModel(session.model);
 
   const columns: Column<AdminUser>[] = [
     { key: 'name', label: 'Profissional', value: (u) => u.displayName, render: (u) => <span><b>{u.displayName}</b><br /><span className="ig-small ig-muted"><span className="ig-mono">{u.login}</span>{u.email ? ` · ${u.email}` : ''}{u.registration ? ` · ${u.registration}` : ''}</span></span> },
@@ -58,7 +60,8 @@ export function UsersPage() {
         {u.grants.length ? <span className="ig-small ig-muted"><br />{u.grants.length} autorização(ões) individual(is)</span> : null}
       </span>
     ) },
-    { key: 'scope', label: 'Setor de atuação', value: (u) => (u.scopeAll ? 'Todos os setores' : u.sectorIds.map(sectorName).join(', ')) },
+    // Sector scope is a hospital concept; consulting organizations get client scope in their own module.
+    ...(hospital ? [{ key: 'scope', label: 'Setor de atuação', value: (u: AdminUser) => (u.scopeAll ? 'Todos os setores' : u.sectorIds.map(sectorName).join(', ')) }] : []),
     { key: 'status', label: 'Situação', value: (u) => u.status, render: (u) => (
       <span>{u.lockedUntil ? <StatusBadge status="crit">Bloqueada até {formatDate(u.lockedUntil, tz)}</StatusBadge> : <StatusBadge status={STATUS_TONE[u.status]}>{ACCOUNT_STATUS_LABEL[u.status]}</StatusBadge>}
         {u.validUntil ? <span className="ig-small ig-muted"><br />até {formatDate(u.validUntil)}</span> : null}</span>
@@ -102,11 +105,13 @@ export function UsersPage() {
       <div className="filters" role="search">
         <div className="field"><label htmlFor="u-q">Pesquisar</label><input id="u-q" className="select" value={filters.q} placeholder="Nome, login ou e-mail" onChange={(e) => setFilter('q', e.target.value)} /></div>
         <div className="field"><label htmlFor="u-role">Função</label>
-          <select id="u-role" className="select" value={filters.role} onChange={(e) => setFilter('role', e.target.value)}><option value="">Todas</option>{[...FUNCTION_ROLES, 'admin' as RoleCode, ...ADDITIONAL_ROLES].map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>
+          <select id="u-role" className="select" value={filters.role} onChange={(e) => setFilter('role', e.target.value)}><option value="">Todas</option>{filterRoles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>
         </div>
-        <div className="field"><label htmlFor="u-sector">Setor</label>
+        {hospital ? (
+          <div className="field"><label htmlFor="u-sector">Setor</label>
           <select id="u-sector" className="select" value={filters.sectorId} onChange={(e) => setFilter('sectorId', e.target.value)}><option value="">Todos</option>{sectors.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
         </div>
+        ) : null}
         <div className="field"><label htmlFor="u-status">Situação</label>
           <select id="u-status" className="select" value={filters.status} onChange={(e) => setFilter('status', e.target.value)}><option value="">Todas</option>{Object.entries(ACCOUNT_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         </div>
@@ -163,7 +168,8 @@ function UserForm({ user, adminOnly, meta, roles, sectors, tz, grantor, onDone }
   const m = user ? update : create;
 
   const assignable = meta.assignableRoles;
-  const functions = adminOnly ? (['admin'] as RoleCode[]) : FUNCTION_ROLES.filter((r) => assignable.includes(r));
+  const hospital = useSession().model === 'hospitalar';
+  const functions = adminOnly ? (['admin'] as RoleCode[]) : hospital ? FUNCTION_ROLES.filter((r) => assignable.includes(r)) : assignable.filter((r) => r !== 'admin');
   const additional = adminOnly ? [] : ADDITIONAL_ROLES.filter((r) => assignable.includes(r));
   const allRoles = [d.functionRole, ...d.extraRoles].filter(Boolean) as RoleCode[];
   const isApprentice = d.functionRole === 'aprendiz';
@@ -174,7 +180,7 @@ function UserForm({ user, adminOnly, meta, roles, sectors, tz, grantor, onDone }
 
   const input = (): UserAccessInput => ({
     displayName: d.displayName.trim(), email: d.email.trim() || null, registration: d.registration.trim() || null, category: d.category || null,
-    functionRole: d.functionRole as RoleCode, extraRoles: d.extraRoles, scopeAll: d.scopeAll, sectorIds: d.scopeAll ? [] : d.sectorIds, status: d.status,
+    functionRole: d.functionRole as RoleCode, extraRoles: d.extraRoles, scopeAll: hospital ? d.scopeAll : true, sectorIds: hospital && !d.scopeAll ? d.sectorIds : [], status: d.status,
     statusReason: d.statusReason.trim() || null, validFrom: d.validFrom || null, validUntil: d.validUntil || null, supervisorId: d.supervisorId || null,
     grants: d.grants.map((permission) => ({ permission, validUntil: (isApprentice ? d.validUntil : d.grantsUntil) || null })), justification: d.justification.trim(),
   });
@@ -245,6 +251,7 @@ function UserForm({ user, adminOnly, meta, roles, sectors, tz, grantor, onDone }
           </fieldset>
         ) : null}
         {err('extraRoles') ? <p className="ig-field-error" role="alert">{err('extraRoles')}</p> : null}
+        {hospital ? <>
         <fieldset className="ig-checks">
           <legend>Setor de atuação *</legend>
           <label><input type="radio" name="u-scope" checked={d.scopeAll} onChange={() => setD({ ...d, scopeAll: true })} />Todos os setores</label>
@@ -257,6 +264,7 @@ function UserForm({ user, adminOnly, meta, roles, sectors, tz, grantor, onDone }
           </fieldset>
         ) : null}
         {err('sectorIds') ? <p className="ig-field-error" role="alert">{err('sectorIds')}</p> : null}
+        </> : null}
         <div className="ig-form-row">
           <Field label="Situação da conta" error={err('status')}>
             <select value={d.status} onChange={(e) => setD({ ...d, status: e.target.value as AccountStatus })}>

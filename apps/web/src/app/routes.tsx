@@ -7,9 +7,10 @@ import { ALL_NAV_ITEMS } from './navigation';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { NotFoundPage, PlannedModulePage } from '../features/modules/PlannedModulePage';
 import { LoginPage } from '../features/auth/LoginPage';
-import { Guard, HomeRoute, RequireSession } from '../features/auth/guards';
+import { Guard, HomeRoute, NavGuard, RequireSession } from '../features/auth/guards';
 
 const named = <K extends string>(load: () => Promise<Record<K, () => ReactElement | null>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
+const ConsultingHomePage = named(() => import('../features/consulting/ConsultingHomePage'), 'ConsultingHomePage');
 const IndicatorsPage = named(() => import('../features/indicators/IndicatorsPage'), 'IndicatorsPage');
 const AdminLayout = named(() => import('../features/admin/AdminLayout'), 'AdminLayout');
 const AdminIndex = named(() => import('../features/admin/AdminLayout'), 'AdminIndex');
@@ -61,7 +62,7 @@ export const routes: RouteObject[] = [
     path: '/',
     element: <RequireSession><AppShell /></RequireSession>,
     children: [
-      { index: true, element: <HomeRoute dashboard={<DashboardPage />} /> },
+      { index: true, element: <HomeRoute dashboard={<DashboardPage />} consulting={page(<ConsultingHomePage />)} /> },
       { path: 'indicadores', element: guarded(['indicators:view'], <IndicatorsPage />) },
       { path: 'pacientes', element: guarded(['patient:view'], <PatientsPage />) },
       { path: 'pacientes/:id', element: guarded(['patient:view'], <PatientDetailPage />) },
@@ -108,7 +109,7 @@ export const routes: RouteObject[] = [
           { path: 'auditoria', element: guarded(['audit:view', 'audit:view:module'], <AuditPage />) },
         ],
       },
-      ...ALL_NAV_ITEMS.filter((i) => i.phase != null).map((item) => ({ path: item.path.slice(1), element: <Guard anyOf={item.permissions}><PlannedModulePage item={item} /></Guard> })),
+      ...ALL_NAV_ITEMS.filter((i) => i.phase != null).map((item) => ({ path: item.path.slice(1), element: <NavGuard item={item}><PlannedModulePage item={item} /></NavGuard> })),
       { path: '*', element: <NotFoundPage /> },
     ],
   },

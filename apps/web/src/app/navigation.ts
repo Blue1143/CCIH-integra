@@ -1,13 +1,15 @@
-import type { Permission } from '@ccih/domain';
+import type { OrganizationType, Permission } from '@ccih/domain';
 
 /** Main navigation. Modules not yet built say so and name the roadmap phase — no fake screens. */
 export interface NavItem {
   path: string;
   label: string;
-  /** Shown when the profile has any of these (the API enforces the same rule). */
+  /** Shown when the profile has any of these (the API enforces the same rule); empty = anyone in the model. */
   permissions: Permission[];
-  /** Roadmap phase that delivers the module; null = available now. */
-  phase: number | null;
+  /** Business models that have this module (default: hospital only). */
+  models?: OrganizationType[];
+  /** Roadmap phase (number) or delivery stage (text, e.g. "M3") of the module; null = available now. */
+  phase: number | string | null;
   summary: string;
   planned?: string[];
 }
@@ -18,6 +20,32 @@ export interface NavGroup {
 }
 
 export const NAVIGATION: NavGroup[] = [
+  // Consulting model (hidden in hospitals; the hospital menu below is unchanged).
+  {
+    label: null,
+    items: [{ path: '/', permissions: [], models: ['consultoria'], label: 'Início', phase: null, summary: 'Visão da consultoria e situação de implantação dos módulos.' }],
+  },
+  {
+    label: 'Consultoria',
+    items: [
+      { path: '/consultoria/clientes', permissions: [], models: ['consultoria'], label: 'Clientes', phase: 'M3', summary: 'Carteira de clientes, estabelecimentos, unidades, contatos e consultores responsáveis.',
+        planned: ['Ficha do cliente com histórico cronológico', 'Vários estabelecimentos por cliente', 'Consultor responsável e troca sem perder histórico'] },
+      { path: '/consultoria/contratos', permissions: [], models: ['consultoria'], label: 'Contratos', phase: 'M4', summary: 'Contratos, serviços, escopo, vigência, aditivos e previsto × realizado.',
+        planned: ['Alertas de vencimento e renovação', 'Frequência de visitas e entregas previstas', 'Dados financeiros só para perfis autorizados'] },
+      { path: '/consultoria/agenda', permissions: [], models: ['consultoria'], label: 'Agenda', phase: 'M5', summary: 'Visitas, reuniões, auditorias, inspeções, treinamentos e entregas.',
+        planned: ['Agenda individual e compartilhada', 'Lembretes e atrasos internos', 'Pendências geradas por atividade'] },
+      { path: '/consultoria/avaliacoes', permissions: [], models: ['consultoria'], label: 'Diagnósticos e auditorias', phase: 'M6', summary: 'Checklists versionados, diagnóstico situacional e auditorias por domínio.',
+        planned: ['Conformidade legal × institucional × maturidade', 'Pontuação por domínio e comparação entre avaliações', 'Evidências e amostragem'] },
+      { path: '/consultoria/nao-conformidades', permissions: [], models: ['consultoria'], label: 'Não conformidades e planos', phase: 'M7', summary: 'Achados, causa raiz, 5W2H, PDCA, evidência e validação de eficácia.',
+        planned: ['Responsável do cliente e prazo', 'Encerramento só com evidência e validação', '5 Porquês e Ishikawa'] },
+      { path: '/consultoria/indicadores', permissions: [], models: ['consultoria'], label: 'Indicadores dos clientes', phase: 'M8', summary: 'IRAS, CME e qualidade por cliente a partir de dados agregados mensais.',
+        planned: ['Fórmulas do catálogo existente', 'Tendências e sinais de alerta', 'Sem dados de pacientes'] },
+      { path: '/consultoria/documentos', permissions: [], models: ['consultoria'], label: 'Documentos', phase: 'M9', summary: 'POPs, protocolos, atas, relatórios e evidências com versão e aprovação.' },
+      { path: '/consultoria/treinamentos', permissions: [], models: ['consultoria'], label: 'Treinamentos', phase: 'M10', summary: 'Catálogo, calendário, presença e avaliação por estabelecimento.' },
+      { path: '/consultoria/relatorios', permissions: [], models: ['consultoria'], label: 'Relatórios e painéis', phase: 'M12', summary: 'Relatórios por cliente e da carteira, planilhas para tabela dinâmica e painéis por escopo.' },
+      { path: '/consultoria/area-do-cliente', permissions: [], models: ['consultoria'], label: 'Área do cliente', phase: 'M13', summary: 'Acesso restrito do cliente ao que foi liberado pela consultoria.' },
+    ],
+  },
   {
     label: null,
     items: [{ path: '/', permissions: ['dashboard:view'], label: 'Visão Geral', phase: null, summary: 'Painel executivo da CCIH.' }],
@@ -56,10 +84,16 @@ export const NAVIGATION: NavGroup[] = [
     items: [
       { path: '/indicadores', permissions: ['indicators:view'], label: 'Indicadores', phase: null, summary: 'Catálogo de indicadores com fórmula, fonte e meta.' },
       { path: '/relatorios', permissions: ['reports:view'], label: 'Relatórios', phase: 7, summary: 'Relatórios com filtros, impressão, PDF e CSV.' },
-      { path: '/alertas', permissions: ['alerts:view'], label: 'Alertas', phase: null, summary: 'Central de alertas com prioridade, responsável e controle de excesso de alertas.' },
-      { path: '/admin', permissions: ['config:view', 'users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme', 'audit:view', 'audit:view:module'], label: 'Administração', phase: null, summary: 'Metas, parâmetros, referências, política da CME, usuários, perfis e log de auditoria.' },
+      { path: '/alertas', permissions: ['alerts:view'], models: ['hospitalar', 'consultoria'], label: 'Alertas', phase: null, summary: 'Central de alertas com prioridade, responsável e controle de excesso de alertas.' },
+      { path: '/admin', permissions: ['config:view', 'users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme', 'audit:view', 'audit:view:module'], models: ['hospitalar', 'consultoria'], label: 'Administração', phase: null, summary: 'Metas, parâmetros, referências, política da CME, usuários, perfis e log de auditoria.' },
     ],
   },
 ];
 
 export const ALL_NAV_ITEMS = NAVIGATION.flatMap((g) => g.items);
+
+/** Whether a menu item is offered: the organization's model has it and the profile can use it. */
+export const navItemVisible = (item: NavItem, model: OrganizationType, can: (...p: Permission[]) => boolean) =>
+  (item.models ?? ['hospitalar']).includes(model) && (item.permissions.length === 0 || can(...item.permissions));
+
+export const phaseLabel = (phase: number | string) => (typeof phase === 'number' ? `Fase ${phase}` : `Etapa ${phase}`);

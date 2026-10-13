@@ -229,9 +229,21 @@ export async function cmeFlowRoutes(app: FastifyInstance, { db, env }: { db: Kys
 
   /* ---------- Readings ---------- */
 
+  /** Sectors and load sent with a reading are recorded with it: they must belong to the user's institution. */
+  const assertOwnRefs = async (auth: AuthContext, b: { originSectorId: string | null; destinationSectorId?: string | null; loadId?: string | null }) => {
+    const problems: Array<{ path: string; message: string }> = [];
+    for (const path of ['originSectorId', 'destinationSectorId'] as const) {
+      const id = b[path];
+      if (id && !(await db.selectFrom('sector').select('id').where('id', '=', id).where('institution_id', '=', auth.institutionId).executeTakeFirst())) problems.push({ path, message: 'Setor inexistente.' });
+    }
+    if (b.loadId && !(await db.selectFrom('sterilization_load').select('id').where('id', '=', b.loadId).where('institution_id', '=', auth.institutionId).executeTakeFirst())) problems.push({ path: 'loadId', message: 'Carga inexistente.' });
+    if (problems.length) throw new HttpError(400, 'validacao', problems[0]!.message, problems);
+  };
+
   app.post('/cme/scan', scanner, async (req): Promise<ScanResponse> => {
     const auth = requireAuth(req);
     const b = parse(ScanBody, req.body);
+    await assertOwnRefs(auth, b);
     if (b.deviceAt && !notFuture(b.deviceAt)) throw new HttpError(400, 'validacao', 'Data do dispositivo no futuro.', [{ path: 'deviceAt', message: 'Data do dispositivo no futuro.' }]);
     if (b.override && !auth.permissions.includes('cme:override')) {
       await audit(db, actorOf(req), { action: 'access_denied', entity: 'route', entityId: 'POST /cme/scan (exceção)', context: { required: ['cme:override'] } });
@@ -243,6 +255,7 @@ export async function cmeFlowRoutes(app: FastifyInstance, { db, env }: { db: Kys
   app.post('/cme/processes/loose', scanner, async (req, reply): Promise<ScanResponse> => {
     const auth = requireAuth(req);
     const b = parse(LooseBody, req.body);
+    await assertOwnRefs(auth, b);
     reply.code(201);
     return receiveLoose(db, auth, b, req.cookies[STATION_COOKIE]);
   });

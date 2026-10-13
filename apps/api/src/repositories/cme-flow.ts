@@ -79,7 +79,9 @@ export async function processSummaries(db: Db, ids: string[]): Promise<ProcessSu
 }
 
 export async function scanEventDtos(db: Db, where: { processId?: string; stationId?: string; institutionId: string; limit: number; scope: string[] | null }): Promise<ScanEventDto[]> {
-  let q = db.selectFrom('cme_scan_event as e').leftJoin('scan_station as s', 's.id', 'e.station_id').leftJoin('station_device as d', 'd.id', 'e.device_id').leftJoin('sterilization_load as l', 'l.id', 'e.load_id')
+  let q = db.selectFrom('cme_scan_event as e').leftJoin('scan_station as s', 's.id', 'e.station_id').leftJoin('station_device as d', 'd.id', 'e.device_id')
+    // Same organization only, even if an old event points elsewhere.
+    .leftJoin('sterilization_load as l', (j) => j.onRef('l.id', '=', 'e.load_id').onRef('l.institution_id', '=', 'e.institution_id'))
     .selectAll('e').select(['s.name as station_name', 's.sector_id as station_sector', 'd.label as device_label', 'l.code as load_code'])
     .where('e.institution_id', '=', where.institutionId);
   if (where.processId) q = q.where('e.process_id', '=', where.processId);

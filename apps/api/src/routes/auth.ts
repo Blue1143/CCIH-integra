@@ -25,6 +25,7 @@ export function meResponse(auth: AuthContext, idleMinutes: number) {
     session: { expiresAt: auth.expiresAt.toISOString(), idleExpiresAt: auth.idleExpiresAt.toISOString(), idleMinutes },
     mustChangePassword: auth.mustChangePassword,
     isFounder: auth.isFounder,
+    organization: { type: auth.organizationType, name: auth.organizationName },
   };
 }
 

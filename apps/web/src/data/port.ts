@@ -5,7 +5,7 @@ import type {
   QualityAuditDetail, QualityAuditDto, StaffMember, SupplyDto, SupplyMovementDto, SurveillanceRow, TrainingCoveragePayload, TrainingDto, TrainingSessionDto,
   AttachmentDto, AttachmentPolicyDto, CmeOverview, CmeTestDto, EquipmentStatus, IbControl, InstrumentSetDto, LoadDetail, LoadStatus, LoadSummary, PackagingType, RecordedTestType,
   SterilizerDto, SterilizerType, TestResult, TraceResult,
-  LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
+  OrganizationType, LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
   AssetDto, CmeSectorDto, UseRecorded, UserNotificationDto, RoleCode, UserAccessInput, UserAccountDto, UserHistoryEntry, FlowConfigDto, InputMethod, ProcessDetail, ProcessStep, ProcessSummaryDto, ScanConfig, ScanEventDto, ScanResponse, StationDto, Symbology,
 } from '@ccih/domain';
 
@@ -32,6 +32,8 @@ export interface SessionInfo {
   mustChangePassword?: boolean;
   /** The creator account (the only one that creates system administrators). */
   isFounder?: boolean;
+  /** The user's organization and its business model. */
+  organization?: { type: OrganizationType; name: string };
 }
 
 export interface AuthPort {

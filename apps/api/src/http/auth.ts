@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
-import { isPermission, todayIn, type Permission } from '@ccih/domain';
+import { effectivePermissions, isPermission, todayIn, type OrganizationType, type Permission } from '@ccih/domain';
 import type { DB } from '../db/types';
 import type { Env } from '../env';
 import { audit, type AuditActor } from '../audit/audit';
@@ -29,6 +29,9 @@ export interface AuthContext {
   mustChangePassword: boolean;
   /** The creator account: the only one that creates or changes system administrators. */
   isFounder: boolean;
+  /** Business model of the user's organization (decides which permissions take effect). */
+  organizationType: OrganizationType;
+  organizationName: string;
 }
 
 declare module 'fastify' {
@@ -61,7 +64,7 @@ export function sessionLoader(db: Kysely<DB>, env: Env) {
       .select([
         'session.id as sessionId', 'session.csrf_hash', 'session.last_seen_at', 'session.expires_at', 'app_user.id as userId', 'app_user.login', 'app_user.display_name',
         'app_user.institution_id', 'app_user.active', 'app_user.status', 'app_user.valid_from', 'app_user.valid_until', 'app_user.is_founder', 'app_user.scope_all',
-        'app_user.must_change_password', 'app_user.password_changed_at', 'institution.timezone',
+        'app_user.must_change_password', 'app_user.password_changed_at', 'institution.timezone', 'institution.organization_type', 'institution.name as institution_name',
       ])
       .where('session.token_hash', '=', sha256(token))
       .where('session.revoked_at', 'is', null)
@@ -86,7 +89,8 @@ export function sessionLoader(db: Kysely<DB>, env: Env) {
       db.selectFrom('user_permission').select('permission').where('user_id', '=', row.userId).where('revoked_at', 'is', null)
         .where((eb) => eb.or([eb('valid_until', 'is', null), eb('valid_until', '>=', today)])).execute(),
     ]);
-    const permissions = [...new Set([...roles.flatMap((r) => r.permissions), ...grants.map((g) => g.permission)])].filter(isPermission);
+    // Limited to the organization's model: a permission of the other model never takes effect, whatever a role or grant says.
+    const permissions = effectivePermissions([...new Set([...roles.flatMap((r) => r.permissions), ...grants.map((g) => g.permission)])].filter(isPermission), row.organization_type);
     // Touch at most once a minute to keep writes low.
     let lastSeen = row.last_seen_at;
     if (now - lastSeen.getTime() > 60_000) {
@@ -106,6 +110,8 @@ export function sessionLoader(db: Kysely<DB>, env: Env) {
       expiresAt: row.expires_at,
       idleExpiresAt: new Date(lastSeen.getTime() + idleMs),
       isFounder: row.is_founder,
+      organizationType: row.organization_type,
+      organizationName: row.institution_name,
       mustChangePassword: row.must_change_password || (env.PASSWORD_MAX_AGE_DAYS > 0 && now - row.password_changed_at.getTime() > env.PASSWORD_MAX_AGE_DAYS * 86_400_000),
     };
   };
@@ -124,6 +130,18 @@ export function requirePermission(db: Kysely<DB>, ...anyOf: Permission[]) {
     if (anyOf.some((p) => auth.permissions.includes(p))) return;
     await audit(db, actorOf(req), { action: 'access_denied', entity: 'route', entityId: `${req.method} ${req.routeOptions.url ?? req.url}`, context: { required: anyOf } });
     throw forbidden();
+  };
+}
+
+/**
+ * Routes of one business model only (registered as a hook on the model's route group): a user of an
+ * organization of the other model gets 404, as if the route did not exist, and the attempt is logged.
+ */
+export function requireModel(db: Kysely<DB>, model: OrganizationType) {
+  return async (req: FastifyRequest) => {
+    if (!req.auth || req.auth.organizationType === model) return; // unauthenticated: the route itself answers 401
+    await audit(db, actorOf(req), { action: 'access_denied', entity: 'route', entityId: `${req.method} ${req.routeOptions.url ?? req.url}`, context: { requiredModel: model, organizationType: req.auth.organizationType } });
+    throw new HttpError(404, 'nao_encontrado', 'Recurso não encontrado.');
   };
 }
 

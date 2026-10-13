@@ -9,7 +9,7 @@ import { IdleWarning } from '../features/auth/IdleWarning';
 import { useAlertCount } from '../features/operations/AlertsPage';
 import { useUnreadNotifications } from '../features/inbox/NotificationsPage';
 import { ErrorBoundary } from './ErrorBoundary';
-import { NAVIGATION } from './navigation';
+import { NAVIGATION, navItemVisible, phaseLabel } from './navigation';
 import { THEME_LABEL, useTheme } from './theme';
 
 export function AppShell() {
@@ -30,7 +30,7 @@ export function AppShell() {
   const unread = useUnreadNotifications().data?.unread ?? 0;
   const forced = !!session.info?.mustChangePassword;
   const realtime = useRealtimeSync(session.status === 'authenticated' && !forced);
-  const groups = (forced ? [] : NAVIGATION).map((g) => ({ ...g, items: g.items.filter((i) => session.can(...i.permissions)) })).filter((g) => g.items.length);
+  const groups = (forced ? [] : NAVIGATION).map((g) => ({ ...g, items: g.items.filter((i) => navItemVisible(i, session.model, session.can)) })).filter((g) => g.items.length);
 
   return (
     <div className="app ig-root">
@@ -86,7 +86,7 @@ export function AppShell() {
                   <li key={item.path}>
                     <NavLink to={item.path} end={item.path === '/'} className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
                       <span>{item.label}</span>
-                      {item.phase ? <span className="nav-phase"><span className="ig-sr-only"> — em desenvolvimento, </span>Fase {item.phase}</span> : null}
+                      {item.phase ? <span className="nav-phase"><span className="ig-sr-only"> — em desenvolvimento, </span>{phaseLabel(item.phase)}</span> : null}
                       {item.path === '/alertas' && urgent ? <span className="nav-count" title="Alertas abertos de gravidade crítica ou alta"><span className="ig-sr-only"> — </span>{urgent}<span className="ig-sr-only"> de gravidade crítica ou alta</span></span> : null}
                     </NavLink>
                   </li>

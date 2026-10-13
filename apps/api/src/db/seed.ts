@@ -34,6 +34,11 @@ export interface SeedOptions {
   /** Same password for every demo user (tests/e2e). Without it, random passwords are generated. */
   password?: string;
   now?: Date;
+  /**
+   * Tests only: an additional synthetic organization in a database that already has one (isolation
+   * tests). Logins get this prefix, since logins are unique across the platform.
+   */
+  additional?: { loginPrefix: string; name: string };
 }
 
 export interface SeedResult {
@@ -49,10 +54,11 @@ export async function seedDemo(db: Kysely<DB>, opts: SeedOptions = {}): Promise<
   const weak = opts.password ? passwordProblem(opts.password) : null;
   if (weak) throw new Error(`SEED_PASSWORD fora da política de senhas: ${weak}`);
   const existing = await db.selectFrom('institution').select('id').executeTakeFirst();
-  if (existing) throw new Error('O banco já possui uma instituição. Use db:reset para recriar o ambiente de demonstração.');
+  if (existing && !opts.additional) throw new Error('O banco já possui uma instituição. Use db:reset para recriar o ambiente de demonstração.');
+  const login = (l: string) => `${opts.additional?.loginPrefix ?? ''}${l}`;
 
   return db.transaction().execute(async (trx) => {
-    const inst = await trx.insertInto('institution').values({ name: DEMO_CONFIG.institutionName, cnes: null, timezone: DEMO_CONFIG.timezone, data_origin: 'demo' }).returning('id').executeTakeFirstOrThrow();
+    const inst = await trx.insertInto('institution').values({ name: opts.additional?.name ?? DEMO_CONFIG.institutionName, cnes: null, timezone: DEMO_CONFIG.timezone, data_origin: 'demo' }).returning('id').executeTakeFirstOrThrow();
     const institutionId = inst.id;
 
     const unitIds = new Map<string, string>();
@@ -82,7 +88,7 @@ export async function seedDemo(db: Kysely<DB>, opts: SeedOptions = {}): Promise<
       const user = await trx
         .insertInto('app_user')
         .values({
-          institution_id: institutionId, professional_id: prof.id, login: u.login, display_name: u.name, password_hash: await hashPassword(password), scope_all: u.scope === 'all', password_changed_at: now,
+          institution_id: institutionId, professional_id: prof.id, login: login(u.login), display_name: u.name, password_hash: await hashPassword(password), scope_all: u.scope === 'all', password_changed_at: now,
           function_role: u.role, professional_category: u.category, status: 'ativo', permissions_changed_at: now, authorized_by_name: 'Carga de demonstração',
           ...(u.grants ? { valid_from: todayIn(DEMO_CONFIG.timezone, now), valid_until: addDays(todayIn(DEMO_CONFIG.timezone, now), 180) } : {}),
         })
@@ -91,10 +97,10 @@ export async function seedDemo(db: Kysely<DB>, opts: SeedOptions = {}): Promise<
       await trx.insertInto('user_role').values({ user_id: user.id, institution_id: institutionId, role_code: u.role }).execute();
       if (u.scope !== 'all') await trx.insertInto('user_scope').values(u.scope.map((code) => ({ user_id: user.id, sector_id: sectorIds.get(code)! }))).execute();
       if (u.grants) await trx.insertInto('user_permission').values(u.grants.map((permission) => ({ user_id: user.id, permission, granted_by: null, granted_by_name: 'Carga de demonstração', justification: 'Pacote Registro operacional CME (demonstração)', valid_until: null }))).execute();
-      credentials.push({ login: u.login, role: u.role, password });
+      credentials.push({ login: login(u.login), role: u.role, password });
     }
     // The apprentice is supervised by the CME nurse.
-    const [apprentice, supervisor] = await Promise.all(['aprendiz', 'cme'].map((login) => trx.selectFrom('app_user').select('id').where('login', '=', login).executeTakeFirstOrThrow()));
+    const [apprentice, supervisor] = await Promise.all(['aprendiz', 'cme'].map((l) => trx.selectFrom('app_user').select('id').where('login', '=', login(l)).executeTakeFirstOrThrow()));
     await trx.updateTable('app_user').set({ supervisor_id: supervisor!.id }).where('id', '=', apprentice!.id).execute();
 
     const refIds = new Map<string, string>();

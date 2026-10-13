@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { createDb } from './client';
 import { grantAppRole, migrateToLatest, resetSchema } from './migrate';
 import { seedDemo } from './seed';
+import { seedDemoConsulting } from './seed-consulting';
 import { verifyAuditChain } from '../audit/audit';
 
 /**
@@ -37,10 +38,14 @@ async function seed() {
   if (isProduction) throw new Error('O seed de demonstração não roda em produção.');
   const db = createDb(required('DATABASE_URL', appUrl), 2);
   try {
-    const result = await seedDemo(db, process.env.SEED_PASSWORD ? { password: process.env.SEED_PASSWORD } : {});
+    const opts = process.env.SEED_PASSWORD ? { password: process.env.SEED_PASSWORD } : {};
+    const result = await seedDemo(db, opts);
+    // A second, empty organization of the consulting model (its own login; no data shared with the hospital).
+    const consulting = await seedDemoConsulting(db, opts);
+    const credentials = [...result.credentials, ...consulting.credentials];
     const file = '.seed-credentials.local';
-    writeFileSync(file, result.credentials.map((c) => `${c.login}\t${c.role}\t${c.password}`).join('\n') + '\n', { mode: 0o600 });
-    console.warn(`Ambiente de demonstração criado: ${result.credentials.length} usuários sintéticos, ${result.facts} fatos mensais.`);
+    writeFileSync(file, credentials.map((c) => `${c.login}\t${c.role}\t${c.password}`).join('\n') + '\n', { mode: 0o600 });
+    console.warn(`Ambiente de demonstração criado: hospital com ${result.credentials.length} usuários sintéticos e ${result.facts} fatos mensais; consultoria de demonstração com o usuário "consultoria".`);
     console.warn(`Credenciais de demonstração gravadas em apps/api/${file} (arquivo ignorado pelo git).`);
   } finally {
     await db.destroy();

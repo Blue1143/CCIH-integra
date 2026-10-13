@@ -11,6 +11,7 @@ import * as m0008 from './migrations/0008_event_outbox';
 import * as m0009 from './migrations/0009_rbac_functions';
 import * as m0010 from './migrations/0010_labels';
 import * as m0011 from './migrations/0011_attachment_security';
+import * as m0012 from './migrations/0012_organization_type';
 
 /** Migrations are registered statically (works the same under tsx, tests and the bundled build). */
 const MIGRATIONS: Record<string, Migration> = {
@@ -25,6 +26,7 @@ const MIGRATIONS: Record<string, Migration> = {
   '0009_rbac_functions': m0009,
   '0010_labels': m0010,
   '0011_attachment_security': m0011,
+  '0012_organization_type': m0012,
 };
 
 export const APPEND_ONLY_TABLES = [

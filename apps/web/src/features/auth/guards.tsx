@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import type { Permission } from '@ccih/domain';
 import { Card, EmptyState, ErrorState, LoadingState } from '@ccih/ui';
-import { ALL_NAV_ITEMS } from '../../app/navigation';
+import { ALL_NAV_ITEMS, navItemVisible, type NavItem } from '../../app/navigation';
 import { useSession } from './session';
 
 export function RequireSession({ children }: { children: ReactNode }) {
@@ -37,10 +37,18 @@ export function Guard({ anyOf, children }: { anyOf: Permission[]; children: Reac
   );
 }
 
-/** Home: the dashboard for who can see it, otherwise the first permitted module. */
-export function HomeRoute({ dashboard }: { dashboard: ReactNode }) {
+/** A planned module of the menu: only in its model, and for the profiles it names. */
+export function NavGuard({ item, children }: { item: NavItem; children: ReactNode }) {
   const session = useSession();
+  if (navItemVisible(item, session.model, session.can)) return <>{children}</>;
+  return <Guard anyOf={[]}>{null}</Guard>;
+}
+
+/** Home: the model's home; in a hospital, the dashboard for who can see it, otherwise the first permitted module. */
+export function HomeRoute({ dashboard, consulting }: { dashboard: ReactNode; consulting: ReactNode }) {
+  const session = useSession();
+  if (session.model === 'consultoria') return <>{consulting}</>;
   if (session.can('dashboard:view')) return <>{dashboard}</>;
-  const first = ALL_NAV_ITEMS.find((i) => i.path !== '/' && session.can(...i.permissions));
+  const first = ALL_NAV_ITEMS.find((i) => i.path !== '/' && navItemVisible(i, session.model, session.can));
   return first ? <Navigate to={first.path} replace /> : <Guard anyOf={['dashboard:view']}>{null}</Guard>;
 }

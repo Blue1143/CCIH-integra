@@ -6,7 +6,7 @@ import { sql, type Kysely } from 'kysely';
 import type { DB } from './db/types';
 import type { Env } from './env';
 import { HttpError } from './http/errors';
-import { csrfGuard, sessionLoader } from './http/auth';
+import { csrfGuard, requireModel, sessionLoader } from './http/auth';
 import { authRoutes } from './routes/auth';
 import { dataRoutes } from './routes/data';
 import { configRoutes } from './routes/config';
@@ -29,6 +29,12 @@ import { notificationRoutes } from './routes/notifications';
 import { realtimeRoutes } from './routes/realtime';
 import { userRoutes } from './routes/users';
 import { EventHub } from './realtime/hub';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    routeIndex: Array<{ method: string; url: string }>;
+  }
+}
 
 export interface AppOptions {
   db: Kysely<DB>;
@@ -55,6 +61,10 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       : false,
     genReqId: () => crypto.randomUUID(),
   });
+  // Every registered route, so the isolation tests can sweep the whole API (not a hand-kept list).
+  const routeIndex: Array<{ method: string; url: string }> = [];
+  app.addHook('onRoute', (r) => { for (const method of [r.method].flat()) routeIndex.push({ method, url: r.url }); });
+  app.decorate('routeIndex', routeIndex);
 
   await app.register(helmet, {
     contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
@@ -67,7 +77,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   app.addHook('preClose', async () => hub.stop());
   // Counted per signed-in session (runs after the session is loaded), so the stations of a CME or
   // a whole hospital behind one NAT address do not share a single budget; anonymous calls count per IP.
-  await app.register(rateLimit, { max: 300, timeWindow: '1 minute', hook: 'preHandler', keyGenerator: (req) => (req.auth ? `s:${req.auth.sessionId}` : `ip:${req.ip}`) });
+  await app.register(rateLimit, { max: env.API_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute', hook: 'preHandler', keyGenerator: (req) => (req.auth ? `s:${req.auth.sessionId}` : `ip:${req.ip}`) });
 
   app.decorateRequest('auth', null);
   app.addHook('onRequest', sessionLoader(db, env));
@@ -98,24 +108,29 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
 
   await app.register(
     async (api) => {
+      // Shared by both business models.
       await api.register(authRoutes, { db, env });
       await api.register(dataRoutes, { db });
-      await api.register(configRoutes, { db });
       await api.register(adminRoutes, { db });
       await api.register(userRoutes, { db });
-      await api.register(orgRoutes, { db });
-      await api.register(patientRoutes, { db, cipher: FieldCipher.fromEnv(env.FIELD_ENCRYPTION_KEY) });
-      await api.register(irasRoutes, { db });
-      await api.register(surgeryMicroRoutes, { db });
-      await api.register(qualityRoutes, { db });
-      await api.register(trainingSupplyRoutes, { db });
       await api.register(alertRoutes, { db });
       await api.register(notificationRoutes, { db });
       await api.register(realtimeRoutes, { db, env, hub, ...(opts.realtimeHeartbeatMs ? { heartbeatMs: opts.realtimeHeartbeatMs } : {}) });
-      await api.register(attachmentRoutes, { db, env, vault: opts.vault ?? AttachmentVault.fromEnv(env), scanner: opts.scanner ?? scannerFromEnv(env) });
-      await api.register(cmeRoutes, { db });
-      await api.register(cmeFlowRoutes, { db, env });
-      await api.register(cmeLabelRoutes, { db });
+      // Hospital model: the complete internal operation (unchanged). Organizations of another model do not see these routes.
+      await api.register(async (hospital) => {
+        hospital.addHook('preHandler', requireModel(db, 'hospitalar'));
+        await hospital.register(configRoutes, { db });
+        await hospital.register(orgRoutes, { db });
+        await hospital.register(patientRoutes, { db, cipher: FieldCipher.fromEnv(env.FIELD_ENCRYPTION_KEY) });
+        await hospital.register(irasRoutes, { db });
+        await hospital.register(surgeryMicroRoutes, { db });
+        await hospital.register(qualityRoutes, { db });
+        await hospital.register(trainingSupplyRoutes, { db });
+        await hospital.register(attachmentRoutes, { db, env, vault: opts.vault ?? AttachmentVault.fromEnv(env), scanner: opts.scanner ?? scannerFromEnv(env) });
+        await hospital.register(cmeRoutes, { db });
+        await hospital.register(cmeFlowRoutes, { db, env });
+        await hospital.register(cmeLabelRoutes, { db });
+      });
     },
     { prefix: '/api' },
   );

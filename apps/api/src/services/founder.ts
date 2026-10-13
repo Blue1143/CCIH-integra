@@ -11,11 +11,18 @@ export interface FounderResult { id: string; login: string; temporaryPassword: b
  * the system; no credential lives in the code or in the repository. A password outside the policy
  * is accepted only as a temporary one: the account must replace it at first access.
  */
+/** Checks done before anything is written (also used before creating an organization). */
+export function founderProblem(input: Pick<FounderInput, 'login' | 'password' | 'displayName'>): string | null {
+  if (!/^[a-z0-9._-]{3,60}$/.test(input.login.trim().toLowerCase())) return 'Login inválido: use 3 a 60 letras, números, ponto, hífen ou sublinhado.';
+  if (input.password.length < 8) return 'Senha inicial curta demais (mínimo 8 caracteres).';
+  if (input.displayName.trim().length < 3) return 'Informe o nome do responsável pela conta.';
+  return null;
+}
+
 export async function createFounder(db: Kysely<DB>, input: FounderInput): Promise<FounderResult> {
   const login = input.login.trim().toLowerCase();
-  if (!/^[a-z0-9._-]{3,60}$/.test(login)) throw new Error('Login inválido: use 3 a 60 letras, números, ponto, hífen ou sublinhado.');
-  if (input.password.length < 8) throw new Error('Senha inicial curta demais (mínimo 8 caracteres).');
-  if (input.displayName.trim().length < 3) throw new Error('Informe o nome do responsável pela conta.');
+  const problem = founderProblem(input);
+  if (problem) throw new Error(problem);
   const institutions = await db.selectFrom('institution').select('id').execute();
   const institutionId = input.institutionId ?? (institutions.length === 1 ? institutions[0]!.id : null);
   if (!institutionId || !institutions.some((i) => i.id === institutionId)) throw new Error('Informe a instituição (há nenhuma ou mais de uma no banco).');

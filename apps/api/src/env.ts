@@ -14,6 +14,8 @@ const schema = z.object({
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
   /** Login attempts per IP per minute (brute-force throttling, in addition to the per-account lock). */
   LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(1000).default(10),
+  /** Requests per signed-in session (or per IP when anonymous) per minute. */
+  API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(30).max(100000).default(300),
   /** Days after which local passwords must be changed (0 = no expiry). */
   PASSWORD_MAX_AGE_DAYS: z.coerce.number().int().min(0).max(730).default(0),
   /** 32 bytes in base64. Without it, patient full names cannot be stored (initials + record number only). */

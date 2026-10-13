@@ -237,6 +237,39 @@ O plano da CME pendente (E1, H1, H2, I1, G2, I2) fica pausado até M14, exceto o
 | D6 | Um banco para todas as organizações | Sim (esquema compartilhado com `institution_id`); banco por organização só se houver exigência contratual |
 | D7 | Cliente que também usa o modelo hospitalar | Fora do escopo agora: a área do cliente fica dentro da consultoria; vínculo entre organizações fica para depois |
 
+### 2.12 Decisões aprovadas (13/10/2026)
+
+1. **D1** — Organizações criadas por **comando no servidor** (operador da instalação), com a conta criadora; console do operador na interface fica para depois.
+2. **D2** — Dados de IRAS e CME dos clientes: **só agregados mensais** (numerador/denominador por mês, estabelecimento e setor). Nenhum dado de paciente no modelo A.
+3. **D3** — Relatórios em PDF pela **impressão do navegador**, com layout profissional e conteúdo congelado na emissão.
+4. **D4** — Planilhas em **XLSX** com a base formatada como tabela e uma aba de instruções para tabela dinâmica (Excel e LibreOffice).
+5. D5, D6 e D7 seguem a proposta da tabela 2.11 (financeiro opcional e restrito; um banco para todas as organizações; área do cliente dentro da consultoria).
+
+## Andamento
+
+| Etapa | Situação | Evidência |
+| --- | --- | --- |
+| M0 | Concluída | `apps/api/test/tenancy.test.ts`: uma segunda organização hospitalar completa (pacientes, IRAS, CME, qualidade…) é criada no teste; **todas as rotas registradas** (índice automático, não lista manual) são chamadas por um usuário da organização A com identificadores da B no caminho e na consulta (4.199 chamadas). Nada da B volta em resposta, nada da B muda, nenhuma linha nova referencia a B; controle positivo prova que o detector enxerga dados da B. `apps/api/test/tenancy-bodies.test.ts`: 80 casos com **identificadores da B no corpo** de gravações válidas (cada um com controle positivo usando o id da A) |
+| M0 — correção | Feita | A varredura de corpo encontrou **um vazamento real**: a leitura da CME (`POST /cme/scan` e `POST /cme/processes/loose`) aceitava carga e setores de outra organização e a lista de leituras devolvia o código da carga alheia. Corrigido na rota (validação da organização) e na consulta (junção limitada à organização) |
+| M1 | Concluída | Migração 0012 (`organization_type`, razão social, CNPJ único, guarda do modelo no banco, perfil e escopo presos à organização do usuário); corte de permissões por modelo na sessão; rotas hospitalares agrupadas com `requireModel('hospitalar')` (404 e log para outra organização); `/auth/me` com a organização; perfis atribuíveis por modelo; comando `org:create`; consultoria de demonstração no `db:reset`; menu, início e tela de usuários por modelo; testes de domínio, API, interface e E2E |
+| M2 | Concluída | Regressão hospitalar: todas as suítes anteriores verdes sem mudar expectativas (exceto a de ambiente: produção já exigia a chave de anexos), E2E hospitalares e por perfil verdes |
+| M3 em diante | Pendentes | — |
+
+### Como criar organizações (operador da plataforma)
+
+```
+npm run org:create -w @ccih/api -- --tipo consultoria --nome "Consultoria X" --login dono.x --responsavel "Nome do responsável" [--razao-social "..."] [--cnpj 00.000.000/0000-00]
+npm run org:create -w @ccih/api -- --tipo hospitalar --nome "Hospital Y" --login admin.y --responsavel "Nome do responsável"
+```
+
+A senha inicial é digitada sem eco (ou `BOOTSTRAP_ADMIN_PASSWORD` só naquela execução). A organização nasce vazia (sem dados de demonstração) e só com os perfis do seu modelo; a conta criadora entra, troca a senha se for temporária e cadastra a equipe em Administração → Gestão de usuários. Com mais de uma organização no banco, `admin:bootstrap` exige `--instituicao <id>`.
+
+### Rollback da fundação
+
+1. Reverter o commit da etapa.
+2. `down` da migração 0012 (remove tipo, CNPJ, guarda do modelo e as amarrações de perfil/escopo; nenhum dado hospitalar é tocado). Organizações de consultoria criadas antes do rollback passariam a ser tratadas como hospitais: por isso, antes de reverter com consultorias em uso, exportar e remover essas organizações com autorização.
+3. Backup (`pg_dump`) antes de qualquer `down` em ambiente com dados reais.
+
 ## Limites desta proposta
 
 A separação técnica por organização, cliente e função **não é, por si só, garantia de conformidade** com a LGPD ou com normas sanitárias. Checklists e indicadores do modelo A só citam norma ou critério quando a referência for cadastrada e validada pela consultoria; o sistema não declara conformidade sem evidência.

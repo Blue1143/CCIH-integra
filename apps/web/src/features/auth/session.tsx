@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ALL_PERMISSIONS, type Permission } from '@ccih/domain';
+import { ALL_PERMISSIONS, type Permission, type OrganizationType } from '@ccih/domain';
 import { useDataSource, UNAUTHORIZED_EVENT } from '../../data/source';
 import type { SessionInfo } from '../../data/port';
 
@@ -18,6 +18,8 @@ export interface SessionValue {
   exitReason: ExitReason | null;
   info: SessionInfo | null;
   can: (...anyOf: Permission[]) => boolean;
+  /** Business model of the signed-in organization (hospital in demo mode). */
+  model: OrganizationType;
   /** True when the data source accepts changes (backend mode). */
   writable: boolean;
   logout: (reason?: ExitReason) => Promise<void>;
@@ -65,10 +67,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [auth, dropSession]);
 
   const value = useMemo<SessionValue>(() => {
-    if (!auth) return { status: 'demo', exitReason: null, info: null, writable: false, can: (...p) => p.some((x) => DEMO_PERMISSIONS.includes(x)), logout, refresh: async () => undefined };
+    if (!auth) return { status: 'demo', exitReason: null, info: null, writable: false, model: 'hospitalar', can: (...p) => p.some((x) => DEMO_PERMISSIONS.includes(x)), logout, refresh: async () => undefined };
     const status: SessionStatus = me.isPending ? 'loading' : me.isError ? 'error' : me.data ? 'authenticated' : 'anonymous';
     const perms = me.data?.permissions ?? [];
-    return { status, exitReason: status === 'authenticated' ? null : exitReason, info: me.data ?? null, writable: true, can: (...p) => p.some((x) => perms.includes(x)), logout, refresh: () => me.refetch() };
+    return { status, exitReason: status === 'authenticated' ? null : exitReason, info: me.data ?? null, writable: true, model: me.data?.organization?.type ?? 'hospitalar', can: (...p) => p.some((x) => perms.includes(x)), logout, refresh: () => me.refetch() };
   }, [auth, me, logout, exitReason]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
