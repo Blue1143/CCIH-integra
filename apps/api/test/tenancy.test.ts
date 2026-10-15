@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'kysely';
 import { seedDemo } from '../src/db/seed';
+import { seedDemoConsulting } from '../src/db/seed-consulting';
+import { createOrganization } from '../src/services/organization';
 import { ORIGIN, TEST_PASSWORD, login, setupTestApp, teardown, type Session, type TestContext } from './helpers';
 
 /**
@@ -72,45 +74,74 @@ describe('isolation between organizations (sweep of every route)', () => {
   });
 
   it('returns nothing of B and changes nothing of B through any route, with B identifiers in the path or the query', async () => {
-    const routes = ctx.app.routeIndex.filter((r) => r.url.startsWith('/api/') && !SKIP.has(r.url) && r.method !== 'HEAD' && r.method !== 'OPTIONS');
-    expect(routes.length).toBeGreaterThan(120);
-    // One identifier of B per table is enough to exercise every lookup (the code path does not depend on which row).
-    const candidates = [...idsOfB.entries()].filter(([, ids]) => ids.length).map(([t, ids]) => ({ table: t, id: ids[0]! }));
-    const queryKeys: Record<string, string> = {
-      sectorId: 'sector', unitId: 'unit', patientId: 'patient', admissionId: 'admission', loadId: 'sterilization_load', stationId: 'scan_station', setId: 'instrument_set',
-      sterilizerId: 'sterilizer', trainingId: 'training', supplyId: 'supply', auditId: 'quality_audit', entityId: 'sterilization_test', surgeryId: 'surgery', userId: 'app_user', templateId: 'bundle_template',
-    };
-    const before = await snapshot();
-    const problems: string[] = [];
-    let calls = 0;
-    const send = async (method: string, url: string) => {
-      calls++;
-      const res = await ctx.app.inject({ method: method as 'GET', url, headers: { ...A.headers, origin: ORIGIN }, ...(method === 'GET' || method === 'DELETE' ? {} : { payload: {} }) });
-      const found = leaked(res.body);
-      if (found.length) problems.push(`${method} ${url} → ${res.statusCode} devolveu dados de B (${found.length})`);
-      if (method === 'GET' && res.statusCode < 300 && /:[a-zA-Z]+/.test(url)) problems.push(`${method} ${url} → ${res.statusCode} com identificador de B`);
-    };
-    for (const r of routes) {
-      if (r.url.includes(':')) {
-        for (const c of candidates) await send(r.method, r.url.replace(/:[a-zA-Z]+/g, c.id));
-      } else {
-        await send(r.method, r.url);
-        if (r.method === 'GET') {
-          for (const [key, table] of Object.entries(queryKeys)) {
-            const id = idsOfB.get(table)?.[0];
-            if (id) await send('GET', `${r.url}?${key}=${id}`);
-          }
+    const r = await sweep(A, idsOfB, allB, instB);
+    expect(r.calls).toBeGreaterThan(4000);
+    expect(r.problems).toEqual([]);
+  }, 600_000);
+
+  it('isolates consultancies too: a consultancy gets nothing of another consultancy through any route', async () => {
+    const before = await idsByTable();
+    const b = await seedDemoConsulting(ctx.db, { password: TEST_PASSWORD });
+    const after = await idsByTable();
+    const ids = new Map<string, string[]>();
+    const all = new Set<string>();
+    for (const t of tables) {
+      const fresh = [...after.get(t)!].filter((id) => !before.get(t)!.has(id));
+      ids.set(t, fresh);
+      for (const id of fresh) all.add(id);
+    }
+    expect(ids.get('client')!.length).toBeGreaterThan(0);
+    await createOrganization(ctx.db, { type: 'consultoria', name: 'Consultoria A (varredura)', founder: { login: 'dono.varredura', password: TEST_PASSWORD, displayName: 'Dono da varredura' } });
+    const a = await login(ctx.app, 'dono.varredura');
+    // Control: B's own manager sees B's client.
+    const own = await ctx.app.inject({ method: 'GET', url: `/api/consulting/clients/${ids.get('client')![0]}`, headers: (await login(ctx.app, 'gestor.consultoria')).headers });
+    expect(own.statusCode).toBe(200);
+    const r = await sweep(a, ids, all, b.institutionId);
+    expect(r.problems).toEqual([]);
+  }, 600_000);
+});
+
+/** Calls every route as `as` with identifiers of the other organization; reports leaks and changes. */
+async function sweep(as: Session, ids: Map<string, string[]>, all: Set<string>, otherInstitution: string): Promise<{ calls: number; problems: string[] }> {
+  const leak = (text: string) => [...new Set(text.match(UUID) ?? [])].filter((u) => all.has(u));
+  const routes = ctx.app.routeIndex.filter((r) => r.url.startsWith('/api/') && !SKIP.has(r.url) && r.method !== 'HEAD' && r.method !== 'OPTIONS');
+  expect(routes.length).toBeGreaterThan(120);
+  // One identifier per table is enough to exercise every lookup (the code path does not depend on which row).
+  const candidates = [...ids.entries()].filter(([, list]) => list.length).map(([t, list]) => ({ table: t, id: list[0]! }));
+  const queryKeys: Record<string, string> = {
+    sectorId: 'sector', unitId: 'unit', patientId: 'patient', admissionId: 'admission', loadId: 'sterilization_load', stationId: 'scan_station', setId: 'instrument_set',
+    sterilizerId: 'sterilizer', trainingId: 'training', supplyId: 'supply', auditId: 'quality_audit', entityId: 'sterilization_test', surgeryId: 'surgery', userId: 'app_user', templateId: 'bundle_template',
+    consultantId: 'app_user', clientId: 'client',
+  };
+  const before = await snapshot();
+  const problems: string[] = [];
+  let calls = 0;
+  const send = async (method: string, pattern: string, url: string) => {
+    calls++;
+    const res = await ctx.app.inject({ method: method as 'GET', url, headers: { ...as.headers, origin: ORIGIN }, ...(method === 'GET' || method === 'DELETE' ? {} : { payload: {} }) });
+    const found = leak(res.body);
+    if (found.length) problems.push(`${method} ${url} → ${res.statusCode} devolveu dados da outra organização (${found.length})`);
+    if (method === 'GET' && res.statusCode < 300 && pattern.includes(':')) problems.push(`${method} ${url} → ${res.statusCode} com identificador da outra organização`);
+  };
+  for (const r of routes) {
+    if (r.url.includes(':')) {
+      for (const c of candidates) await send(r.method, r.url, r.url.replace(/:[a-zA-Z]+/g, c.id));
+    } else {
+      await send(r.method, r.url, r.url);
+      if (r.method === 'GET') {
+        for (const [key, table] of Object.entries(queryKeys)) {
+          const id = ids.get(table)?.[0];
+          if (id) await send('GET', r.url, `${r.url}?${key}=${id}`);
         }
       }
     }
-    const after = await snapshot();
-    for (const [t, rows] of before) {
-      const now = after.get(t)!;
-      for (const row of rows) if (!now.has(row) && (row.includes(instB) || leaked(row).length)) problems.push(`linha de B alterada ou apagada em ${t}`);
-      if (t === 'audit_log' || t === 'session' || t === 'event_outbox') continue;
-      for (const row of now) if (!rows.has(row) && leaked(row).length) problems.push(`linha nova em ${t} referencia B`);
-    }
-    expect(calls).toBeGreaterThan(4000);
-    expect(problems).toEqual([]);
-  }, 600_000);
-});
+  }
+  const after = await snapshot();
+  for (const [t, rows] of before) {
+    const now = after.get(t)!;
+    for (const row of rows) if (!now.has(row) && (row.includes(otherInstitution) || leak(row).length)) problems.push(`linha da outra organização alterada ou apagada em ${t}`);
+    if (t === 'audit_log' || t === 'session' || t === 'event_outbox') continue;
+    for (const row of now) if (!rows.has(row) && leak(row).length) problems.push(`linha nova em ${t} referencia a outra organização`);
+  }
+  return { calls, problems };
+}

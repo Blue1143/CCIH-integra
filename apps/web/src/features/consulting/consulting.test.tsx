@@ -37,7 +37,8 @@ describe('menus and home by business model', () => {
     expect(links.some((l) => l.startsWith('Clientes'))).toBe(true);
     expect(links.some((l) => l.startsWith('Administração'))).toBe(true);
     for (const hospitalOnly of ['Visão Geral', 'Vigilância IRAS', 'CME', 'Pacientes', 'Bundles']) expect(links.some((l) => l.startsWith(hospitalOnly))).toBe(false);
-    expect(screen.getByRole('row', { name: /Clientes .* Etapa M3/ })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Clientes .* Disponível/ })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Contratos .* Etapa M4/ })).toBeInTheDocument();
   });
 
   it('a consulting user reaching a hospital page by URL gets no access', async () => {
@@ -46,8 +47,8 @@ describe('menus and home by business model', () => {
   });
 
   it('a planned consulting module says so plainly, and does not exist for hospitals', async () => {
-    renderAs('consultoria', '/consultoria/clientes');
-    expect(await screen.findByText('Em desenvolvimento — Etapa M3')).toBeInTheDocument();
+    renderAs('consultoria', '/consultoria/contratos');
+    expect(await screen.findByText('Em desenvolvimento — Etapa M4')).toBeInTheDocument();
   });
 
   it('a hospital keeps its menu and has no consulting module', async () => {

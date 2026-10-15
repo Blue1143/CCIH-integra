@@ -45,7 +45,7 @@ async function seed() {
     const credentials = [...result.credentials, ...consulting.credentials];
     const file = '.seed-credentials.local';
     writeFileSync(file, credentials.map((c) => `${c.login}\t${c.role}\t${c.password}`).join('\n') + '\n', { mode: 0o600 });
-    console.warn(`Ambiente de demonstração criado: hospital com ${result.credentials.length} usuários sintéticos e ${result.facts} fatos mensais; consultoria de demonstração com o usuário "consultoria".`);
+    console.warn(`Ambiente de demonstração criado: hospital com ${result.credentials.length} usuários sintéticos e ${result.facts} fatos mensais; consultoria de demonstração com ${consulting.credentials.length} usuários e 3 clientes sintéticos.`);
     console.warn(`Credenciais de demonstração gravadas em apps/api/${file} (arquivo ignorado pelo git).`);
   } finally {
     await db.destroy();

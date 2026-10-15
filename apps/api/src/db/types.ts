@@ -69,7 +69,7 @@ export interface RoleTable {
   code: string;
   name: string;
   permissions: string[];
-  module: Generated<'ccih' | 'cme' | 'qualidade' | 'sistema'>;
+  module: Generated<'ccih' | 'cme' | 'qualidade' | 'sistema' | 'consultoria'>;
 }
 
 export interface AppUserTable {
@@ -455,7 +455,7 @@ export interface AlertTable {
   resolved_at: NullableTimestamp; resolved_by: string | null; resolved_name: string | null; resolved_note: string | null;
   closed_reason: 'manual' | 'automatico' | 'excecao' | null;
 }
-export type RealtimeTopic = 'clinico' | 'cme' | 'qualidade' | 'alertas' | 'notificacoes' | 'config';
+export type RealtimeTopic = 'clinico' | 'cme' | 'qualidade' | 'alertas' | 'notificacoes' | 'config' | 'consultoria';
 export interface EventOutboxTable {
   /** bigserial: pg returns a string. */
   id: Generated<string>; institution_id: string; topic: RealtimeTopic; permission: string | null; sector_id: string | null; user_id: string | null; created_at: CreatedAt;
@@ -587,6 +587,30 @@ export interface LabelCancelTable {
   id: Generated<string>; institution_id: string; label_print_id: string; reason: string; cancelled_by: string; cancelled_by_name: string; cancelled_at: CreatedAt;
 }
 
+type AddressColumns = { street: string | null; number: string | null; district: string | null; city: string | null; state: string | null; zip: string | null };
+type Versioned = { created_at: CreatedAt; updated_at: Generated<Date>; row_version: Generated<number> };
+
+export type ClientTable = AddressColumns & Versioned & {
+  id: Generated<string>; institution_id: string; legal_name: string; trade_name: string | null; cnpj: string | null; kind: string; status: 'prospecto' | 'ativo' | 'suspenso' | 'encerrado';
+  email: string | null; phone: string | null; services_summary: string | null; internal_notes: string | null; created_by: string | null; created_by_name: string; data_origin: Origin;
+};
+export type ClientContactTable = Versioned & {
+  id: Generated<string>; institution_id: string; client_id: string; kind: 'responsavel_tecnico' | 'responsavel_administrativo' | 'contato_autorizado'; name: string;
+  role_title: string | null; registry: string | null; email: string | null; phone: string | null; active: Generated<boolean>;
+};
+export type ClientEstablishmentTable = AddressColumns & Versioned & {
+  id: Generated<string>; institution_id: string; client_id: string; name: string; cnes: string | null; cnpj: string | null; kind: string; beds: number | null; active: Generated<boolean>;
+};
+export type ClientUnitTable = Versioned & { id: Generated<string>; institution_id: string; establishment_id: string; name: string; kind: string; beds: number | null; active: Generated<boolean> };
+export interface ClientAssignmentTable {
+  id: Generated<string>; institution_id: string; client_id: string; user_id: string; role: 'responsavel' | 'apoio'; specialty: string | null; starts_on: string; ends_on: string | null;
+  assigned_by: string | null; assigned_by_name: string; reason: string; ended_by_name: string | null; end_reason: string | null; created_at: CreatedAt;
+}
+export interface ClientEventTable {
+  id: Generated<string>; institution_id: string; client_id: string; kind: string; summary: string; detail: string | null; occurred_on: string;
+  actor_id: string | null; actor_name: string; created_at: CreatedAt;
+}
+
 export interface InstrumentAssetTable {
   id: Generated<string>; institution_id: string; set_id: string; code: string; tag: string | null;
   status: ColumnType<'ativo' | 'manutencao' | 'baixado', 'ativo' | 'manutencao' | 'baixado' | undefined, 'ativo' | 'manutencao' | 'baixado'>;
@@ -693,4 +717,10 @@ export interface DB {
   label_cancel: LabelCancelTable;
   attachment_scan: AttachmentScanTable;
   attachment_copy: AttachmentCopyTable;
+  client: ClientTable;
+  client_contact: ClientContactTable;
+  client_establishment: ClientEstablishmentTable;
+  client_unit: ClientUnitTable;
+  client_assignment: ClientAssignmentTable;
+  client_event: ClientEventTable;
 }

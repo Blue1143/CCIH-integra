@@ -5,7 +5,7 @@ import type {
   QualityAuditDetail, QualityAuditDto, StaffMember, SupplyDto, SupplyMovementDto, SurveillanceRow, TrainingCoveragePayload, TrainingDto, TrainingSessionDto,
   AttachmentDto, AttachmentPolicyDto, CmeOverview, CmeTestDto, EquipmentStatus, IbControl, InstrumentSetDto, LoadDetail, LoadStatus, LoadSummary, PackagingType, RecordedTestType,
   SterilizerDto, SterilizerType, TestResult, TraceResult,
-  OrganizationType, LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
+  OrganizationType, AssignmentRole, ClientDetailDto, ClientInput, ClientSummaryDto, ContactInput, EstablishmentInput, Specialty, TeamMemberDto, UnitInput, LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
   AssetDto, CmeSectorDto, UseRecorded, UserNotificationDto, RoleCode, UserAccessInput, UserAccountDto, UserHistoryEntry, FlowConfigDto, InputMethod, ProcessDetail, ProcessStep, ProcessSummaryDto, ScanConfig, ScanEventDto, ScanResponse, StationDto, Symbology,
 } from '@ccih/domain';
 
@@ -339,6 +339,19 @@ export interface ScanInput {
   destinationSectorId: string | null; originSectorId: string | null; loadId: string | null; packaging: PackagingType | null; justification: string | null; override: boolean;
 }
 
+export interface ConsultingPort {
+  clients(q: Query): Promise<Paged<ClientSummaryDto>>;
+  client(id: string): Promise<ClientDetailDto>;
+  saveClient(id: string | null, input: ClientInput & { internalNotes?: string | null; rowVersion: number | null }): Promise<ClientDetailDto>;
+  saveContact(clientId: string, contactId: string | null, input: ContactInput & { rowVersion: number | null }): Promise<ClientDetailDto>;
+  saveEstablishment(clientId: string, establishmentId: string | null, input: EstablishmentInput & { rowVersion: number | null }): Promise<ClientDetailDto>;
+  saveUnit(establishmentId: string, unitId: string | null, input: UnitInput & { rowVersion: number | null }): Promise<ClientDetailDto>;
+  assign(clientId: string, input: { userId: string; role: AssignmentRole; specialty: Specialty | null; startsOn: string | null; reason: string }): Promise<ClientDetailDto>;
+  endAssignment(id: string, input: { endsOn: string | null; reason: string }): Promise<ClientDetailDto>;
+  addEvent(clientId: string, input: { kind: 'atendimento' | 'observacao'; summary: string; detail: string | null; occurredOn: string | null }): Promise<ClientDetailDto>;
+  team(): Promise<{ members: TeamMemberDto[] }>;
+}
+
 export interface RealtimeConfig { mode: 'sse' | 'polling'; pollSeconds: number }
 export interface RealtimePort {
   config(): Promise<RealtimeConfig>;
@@ -363,6 +376,8 @@ export interface CcihDataSource {
   readonly cme?: CmePort;
   /** Personal notifications of the signed-in user. */
   readonly inbox?: InboxPort;
+  /** Consulting model: portfolio and consulting operations (only with the backend). */
+  readonly consulting?: ConsultingPort;
   /** Live updates of the screens (only with the backend). */
   readonly realtime?: RealtimePort;
   getInstitution(): Promise<WithProvenance<InstitutionData>>;

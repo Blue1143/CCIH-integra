@@ -224,6 +224,8 @@ export async function trainingSupplyRoutes(app: FastifyInstance, { db }: { db: K
   app.get<{ Params: { id: string } }>('/supplies/:id/movements', view, async (req): Promise<{ movements: SupplyMovementDto[] }> => {
     const auth = requireAuth(req);
     const id = parse(Uuid, req.params.id);
+    // A supply of another organization does not exist for this user (404, not an empty list).
+    if (!(await db.selectFrom('supply').select('id').where('id', '=', id).where('institution_id', '=', auth.institutionId).executeTakeFirst())) throw notFound('Insumo');
     const rows = await db.selectFrom('supply_movement as m').innerJoin('supply_lot as l', 'l.id', 'm.lot_id').innerJoin('supply as s', 's.id', 'l.supply_id')
       .select(['m.id', 'l.lot', 'm.kind', 'm.delta', 'm.sector_id', 'm.occurred_at', 'm.reason', 'm.created_by_name'])
       .where('s.id', '=', id).where('s.institution_id', '=', auth.institutionId).orderBy('m.occurred_at', 'desc').limit(200).execute();

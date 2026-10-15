@@ -1,4 +1,6 @@
-import { ALL_PERMISSIONS, ROLE_MODELS, type Permission, type RoleCode } from './permissions';
+import { MODEL_PERMISSIONS, ROLE_MODELS, SHARED_PERMISSIONS, type Permission, type RoleCode } from './permissions';
+
+export { MODEL_PERMISSIONS, SHARED_PERMISSIONS };
 
 /**
  * Business model of an organization, chosen when it is created and kept for its whole life:
@@ -18,17 +20,8 @@ export const ORGANIZATION_TYPE_HINT: Record<OrganizationType, string> = {
   consultoria: 'Empresa de consultoria: carteira de clientes, contratos, agenda, equipe, auditorias, relatórios e área do cliente.',
 };
 
-/** Permissions every model shares: access administration, audit log and the alert center. */
-export const SHARED_PERMISSIONS: Permission[] = ['users:view', 'users:manage', 'audit:view', 'alerts:view', 'alerts:manage'];
-
-/** Permissions that exist only in the consulting model (filled as its modules are delivered). */
-export const CONSULTING_PERMISSIONS: Permission[] = ALL_PERMISSIONS.filter((p) => p.startsWith('consultoria:'));
-
-export const MODEL_PERMISSIONS: Record<OrganizationType, Permission[]> = {
-  // The hospital model keeps every permission it has today.
-  hospitalar: ALL_PERMISSIONS.filter((p) => !p.startsWith('consultoria:')),
-  consultoria: [...SHARED_PERMISSIONS, ...CONSULTING_PERMISSIONS],
-};
+/** Permissions that exist only in the consulting model. */
+export const CONSULTING_PERMISSIONS: Permission[] = MODEL_PERMISSIONS.consultoria.filter((p) => p.startsWith('consultoria:'));
 
 export const permissionInModel = (p: Permission, type: OrganizationType) => MODEL_PERMISSIONS[type].includes(p);
 

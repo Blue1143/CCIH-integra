@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, assignableRoles } from './permissions';
+import { ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, assignableRoles, grantablePermissions } from './permissions';
 import { MODEL_PERMISSIONS, SHARED_PERMISSIONS, cnpjProblem, effectivePermissions, formatCnpj, rolesOfModel } from './organization';
 
 describe('organization model', () => {
   it('keeps every current permission in the hospital model', () => {
     expect(MODEL_PERMISSIONS.hospitalar).toEqual(ALL_PERMISSIONS.filter((p) => !p.startsWith('consultoria:')));
-    for (const perms of Object.values(DEFAULT_ROLE_PERMISSIONS)) expect(effectivePermissions(perms, 'hospitalar')).toEqual(perms);
+    for (const role of rolesOfModel('hospitalar')) {
+      const perms = DEFAULT_ROLE_PERMISSIONS[role];
+      expect(effectivePermissions(perms, 'hospitalar')).toEqual(perms.filter((p) => !p.startsWith('consultoria:')));
+    }
+    // Hospital profiles never carry consulting permissions (only the administrator's "all" list does, and it is cut).
+    for (const role of rolesOfModel('hospitalar').filter((r) => r !== 'admin')) expect(DEFAULT_ROLE_PERMISSIONS[role].some((p) => p.startsWith('consultoria:'))).toBe(false);
   });
 
   it('limits the consulting model to shared and consulting permissions', () => {
@@ -15,9 +20,20 @@ describe('organization model', () => {
   });
 
   it('assigns only the profiles of the organization model', () => {
-    expect(rolesOfModel('consultoria')).toEqual(['admin']);
-    expect(assignableRoles({ permissions: ['users:manage'], isFounder: true, organizationType: 'consultoria' })).toEqual(['admin']);
+    expect(rolesOfModel('consultoria')).toEqual(['admin', 'gestor_consultoria', 'consultor', 'assistente_consultoria', 'financeiro_consultoria']);
+    expect(assignableRoles({ permissions: ['users:manage'], isFounder: true, organizationType: 'consultoria' })).toEqual(rolesOfModel('consultoria'));
+    expect(assignableRoles({ permissions: ['users:manage'], isFounder: false, organizationType: 'consultoria' })).not.toContain('admin');
+    expect(assignableRoles({ permissions: ['users:manage'], isFounder: false, organizationType: 'consultoria' })).not.toContain('enf_ccih');
     expect(assignableRoles({ permissions: ['users:manage'], isFounder: false })).toContain('enf_ccih');
+  });
+
+  it('gives consulting profiles only consulting and shared permissions, and keeps assignment and notes away from consultants', () => {
+    for (const role of rolesOfModel('consultoria')) expect(effectivePermissions(DEFAULT_ROLE_PERMISSIONS[role], 'consultoria')).toEqual(DEFAULT_ROLE_PERMISSIONS[role].filter((p) => MODEL_PERMISSIONS.consultoria.includes(p)));
+    for (const role of rolesOfModel('consultoria').filter((r) => r !== 'admin')) expect(DEFAULT_ROLE_PERMISSIONS[role].every((p) => MODEL_PERMISSIONS.consultoria.includes(p))).toBe(true);
+    expect(DEFAULT_ROLE_PERMISSIONS.consultor).not.toContain('consultoria:portfolio:all');
+    expect(DEFAULT_ROLE_PERMISSIONS.consultor).not.toContain('consultoria:clients:internal_notes');
+    expect(grantablePermissions({ permissions: ['users:manage'], isFounder: true, organizationType: 'consultoria' }, ['consultor']).every((p) => MODEL_PERMISSIONS.consultoria.includes(p))).toBe(true);
+    expect(grantablePermissions({ permissions: ['users:manage'], isFounder: true, organizationType: 'consultoria' }, ['consultor'])).not.toContain('consultoria:portfolio:assign');
   });
 
   it('validates CNPJ check digits', () => {

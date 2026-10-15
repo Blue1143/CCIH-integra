@@ -32,6 +32,8 @@ export interface AuthContext {
   /** Business model of the user's organization (decides which permissions take effect). */
   organizationType: OrganizationType;
   organizationName: string;
+  /** Consulting organizations: the clients this person may see (null = every client, or not applicable). */
+  clientScope: string[] | null;
 }
 
 declare module 'fastify' {
@@ -91,6 +93,11 @@ export function sessionLoader(db: Kysely<DB>, env: Env) {
     ]);
     // Limited to the organization's model: a permission of the other model never takes effect, whatever a role or grant says.
     const permissions = effectivePermissions([...new Set([...roles.flatMap((r) => r.permissions), ...grants.map((g) => g.permission)])].filter(isPermission), row.organization_type);
+    // Consultants see only the clients assigned to them today (an assignment ended on a date no longer counts from that date); the portfolio view sees every client.
+    const clientScope = row.organization_type === 'consultoria' && !permissions.includes('consultoria:portfolio:all')
+      ? (await db.selectFrom('client_assignment').select('client_id').where('user_id', '=', row.userId).where('institution_id', '=', row.institution_id)
+        .where('starts_on', '<=', today).where((eb) => eb.or([eb('ends_on', 'is', null), eb('ends_on', '>', today)])).execute()).map((r) => r.client_id)
+      : null;
     // Touch at most once a minute to keep writes low.
     let lastSeen = row.last_seen_at;
     if (now - lastSeen.getTime() > 60_000) {
@@ -112,6 +119,7 @@ export function sessionLoader(db: Kysely<DB>, env: Env) {
       isFounder: row.is_founder,
       organizationType: row.organization_type,
       organizationName: row.institution_name,
+      clientScope,
       mustChangePassword: row.must_change_password || (env.PASSWORD_MAX_AGE_DAYS > 0 && now - row.password_changed_at.getTime() > env.PASSWORD_MAX_AGE_DAYS * 86_400_000),
     };
   };

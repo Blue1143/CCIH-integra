@@ -15,6 +15,7 @@ export * from './indicators/engine';
 export * from './indicators/catalog';
 export * from './permissions';
 export * from './organization';
+export * from './consulting/clients';
 export * from './users';
 export * from './attachments';
 export * from './rule-registry';

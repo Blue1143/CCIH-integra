@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'kysely';
-import { DEFAULT_ROLE_PERMISSIONS, MODEL_PERMISSIONS } from '@ccih/domain';
+import { DEFAULT_ROLE_PERMISSIONS, MODEL_PERMISSIONS, effectivePermissions } from '@ccih/domain';
 import { createOrganization } from '../src/services/organization';
 import { TEST_PASSWORD, accessBody, login, setupTestApp, teardown, type Session, type TestContext } from './helpers';
 
@@ -27,7 +27,8 @@ describe('organization model', () => {
     expect(inst.organization_type).toBe('hospitalar');
     const me = (await call(hospital, 'GET', '/auth/me')).json();
     expect(me.organization).toEqual({ type: 'hospitalar', name: expect.any(String) });
-    expect([...me.permissions].sort()).toEqual([...new Set(DEFAULT_ROLE_PERMISSIONS.admin)].sort());
+    expect([...me.permissions].sort()).toEqual([...new Set(effectivePermissions(DEFAULT_ROLE_PERMISSIONS.admin, 'hospitalar'))].sort());
+    expect(me.permissions.some((p: string) => p.startsWith('consultoria:'))).toBe(false);
   });
 
   it('creates a consulting organization with its model persisted across logins', async () => {
@@ -36,7 +37,7 @@ describe('organization model', () => {
     const again = await login(ctx.app, 'dono.consultoria');
     expect((await call(again, 'GET', '/auth/me')).json().organization.type).toBe('consultoria');
     // Only the profiles of its model exist in the organization.
-    expect((await ctx.db.selectFrom('role').select('code').where('institution_id', '=', consultId).execute()).map((r) => r.code)).toEqual(['admin']);
+    expect((await ctx.db.selectFrom('role').select('code').where('institution_id', '=', consultId).execute()).map((r) => r.code).sort()).toEqual(['admin', 'assistente_consultoria', 'consultor', 'financeiro_consultoria', 'gestor_consultoria']);
   });
 
   it('refuses invalid or duplicated CNPJ and a taken login, writing nothing', async () => {
@@ -79,7 +80,7 @@ describe('organization model', () => {
 
   it('offers and accepts only profiles of the organization model when managing users', async () => {
     const meta = (await call(consult, 'GET', '/users/meta')).json();
-    expect(meta.assignableRoles).toEqual(['admin']);
+    expect(meta.assignableRoles).toEqual(['admin', 'gestor_consultoria', 'consultor', 'assistente_consultoria', 'financeiro_consultoria']);
     const res = await call(consult, 'POST', '/users', { ...accessBody({ functionRole: 'enf_ccih' }), login: 'enf.na.consultoria', displayName: 'Enfermeira (teste)' });
     expect([400, 403]).toContain(res.statusCode);
     const hospitalMeta = (await call(hospital, 'GET', '/users/meta')).json();

@@ -55,14 +55,21 @@ export const PERMISSIONS = {
   'alerts:exception': 'Encerrar por exceção formal um alerta bloqueante cuja condição persiste',
   'export:aggregate': 'Exportar dados agregados',
   'export:identified': 'Exportar dados identificáveis',
+  // Consulting model only.
+  'consultoria:clients:view': 'Ver os clientes da carteira (os atribuídos, ou todos com acesso à carteira completa)',
+  'consultoria:clients:edit': 'Cadastrar e editar clientes, contatos, estabelecimentos e unidades',
+  'consultoria:clients:record': 'Registrar atendimentos e observações no histórico dos clientes',
+  'consultoria:clients:internal_notes': 'Ver e editar as observações administrativas internas dos clientes',
+  'consultoria:portfolio:all': 'Ver toda a carteira de clientes, sem restrição por atribuição',
+  'consultoria:portfolio:assign': 'Distribuir a carteira: atribuir, substituir e encerrar consultores dos clientes',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 
 /** Areas of the system. A module administrator never acts outside its module. */
-export type AccessModule = 'ccih' | 'cme' | 'qualidade' | 'sistema';
-export const MODULE_LABEL: Record<AccessModule, string> = { ccih: 'CCIH', cme: 'CME', qualidade: 'Qualidade', sistema: 'Sistema' };
+export type AccessModule = 'ccih' | 'cme' | 'qualidade' | 'sistema' | 'consultoria';
+export const MODULE_LABEL: Record<AccessModule, string> = { ccih: 'CCIH', cme: 'CME', qualidade: 'Qualidade', sistema: 'Sistema', consultoria: 'Consultoria' };
 
 /**
  * Functions (profiles). Codes are stable identifiers stored in the database; "cme" is the
@@ -70,7 +77,8 @@ export const MODULE_LABEL: Record<AccessModule, string> = { ccih: 'CCIH', cme: '
  */
 export type RoleCode =
   | 'admin' | 'enf_ccih' | 'tec_ccih' | 'cme' | 'tec_cme' | 'enf_qualidade' | 'tec_qualidade' | 'adm_cme' | 'adm_ccih' | 'aprendiz'
-  | 'infectologista' | 'auditor' | 'gestor' | 'consulta';
+  | 'infectologista' | 'auditor' | 'gestor' | 'consulta'
+  | 'gestor_consultoria' | 'consultor' | 'assistente_consultoria' | 'financeiro_consultoria';
 
 export const ROLE_LABEL: Record<RoleCode, string> = {
   admin: 'Administrador do sistema',
@@ -87,15 +95,22 @@ export const ROLE_LABEL: Record<RoleCode, string> = {
   auditor: 'Auditor',
   gestor: 'Gestor',
   consulta: 'Consulta',
+  gestor_consultoria: 'Gestor da consultoria',
+  consultor: 'Consultor',
+  assistente_consultoria: 'Assistente administrativo',
+  financeiro_consultoria: 'Financeiro da consultoria',
 };
 
 /** The functions offered in "Função no sistema", in this order (the other profiles stay available to administrators). */
 export const FUNCTION_ROLES: RoleCode[] = ['enf_ccih', 'cme', 'enf_qualidade', 'tec_ccih', 'tec_cme', 'tec_qualidade', 'adm_cme', 'adm_ccih', 'aprendiz'];
 export const ADDITIONAL_ROLES: RoleCode[] = ['infectologista', 'auditor', 'gestor', 'consulta'];
+/** Functions of a consulting organization, in the order offered. */
+export const CONSULTING_FUNCTION_ROLES: RoleCode[] = ['consultor', 'gestor_consultoria', 'assistente_consultoria', 'financeiro_consultoria'];
 
 export const ROLE_MODULE: Record<RoleCode, AccessModule> = {
   admin: 'sistema', enf_ccih: 'ccih', tec_ccih: 'ccih', adm_ccih: 'ccih', cme: 'cme', tec_cme: 'cme', adm_cme: 'cme',
   enf_qualidade: 'qualidade', tec_qualidade: 'qualidade', aprendiz: 'sistema', infectologista: 'ccih', auditor: 'qualidade', gestor: 'sistema', consulta: 'sistema',
+  gestor_consultoria: 'consultoria', consultor: 'consultoria', assistente_consultoria: 'consultoria', financeiro_consultoria: 'consultoria',
 };
 
 const VIEW_CORE: Permission[] = ['dashboard:view', 'indicators:view'];
@@ -143,6 +158,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
   ],
   gestor: [...VIEW_CORE, 'reports:view', 'quality:view', 'export:aggregate'],
   consulta: [...VIEW_CORE],
+  // Consulting model: the manager runs the whole portfolio; the consultant sees only the clients assigned to them.
+  gestor_consultoria: [
+    'consultoria:clients:view', 'consultoria:clients:edit', 'consultoria:clients:record', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'consultoria:portfolio:assign',
+    'users:view', 'alerts:view', 'alerts:manage',
+  ],
+  consultor: ['consultoria:clients:view', 'consultoria:clients:record', 'alerts:view', 'alerts:manage'],
+  assistente_consultoria: ['consultoria:clients:view', 'consultoria:clients:edit', 'consultoria:clients:record', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'alerts:view'],
+  financeiro_consultoria: ['consultoria:clients:view', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'alerts:view'],
 };
 
 /* ---------- Delegation: who may give what to whom ---------- */
@@ -151,7 +174,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
 export const NEVER_GRANTED_INDIVIDUALLY: Permission[] = [
   'users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme', 'audit:view', 'audit:view:module', 'config:targets:edit', 'config:rules:edit',
   'config:references:edit', 'config:org:edit', 'config:cme_policy:edit', 'ccih:parameters:edit', 'cme:parameters:edit', 'patient:view_identified',
-  'export:identified', 'alerts:exception', 'quality:configure',
+  'export:identified', 'alerts:exception', 'quality:configure', 'consultoria:portfolio:assign', 'consultoria:portfolio:all', 'consultoria:clients:internal_notes',
 ];
 
 /** Permissions a module administrator may grant individually (express authorization, with justification and validity). */
@@ -243,6 +266,17 @@ export const ROLE_MODELS: Record<RoleCode, Array<'hospitalar' | 'consultoria'>> 
   admin: ['hospitalar', 'consultoria'],
   enf_ccih: ['hospitalar'], tec_ccih: ['hospitalar'], adm_ccih: ['hospitalar'], cme: ['hospitalar'], tec_cme: ['hospitalar'], adm_cme: ['hospitalar'],
   enf_qualidade: ['hospitalar'], tec_qualidade: ['hospitalar'], aprendiz: ['hospitalar'], infectologista: ['hospitalar'], auditor: ['hospitalar'], gestor: ['hospitalar'], consulta: ['hospitalar'],
+  gestor_consultoria: ['consultoria'], consultor: ['consultoria'], assistente_consultoria: ['consultoria'], financeiro_consultoria: ['consultoria'],
+};
+
+/** Permissions every model shares: access administration, audit log and the alert center. */
+export const SHARED_PERMISSIONS: Permission[] = ['users:view', 'users:manage', 'audit:view', 'alerts:view', 'alerts:manage'];
+
+/** Permissions that can take effect in each business model. */
+export const MODEL_PERMISSIONS: Record<'hospitalar' | 'consultoria', Permission[]> = {
+  // The hospital model keeps every permission it has always had.
+  hospitalar: ALL_PERMISSIONS.filter((p) => !p.startsWith('consultoria:')),
+  consultoria: [...SHARED_PERMISSIONS, ...ALL_PERMISSIONS.filter((p) => p.startsWith('consultoria:'))],
 };
 
 const has = (g: Grantor, p: Permission) => g.permissions.includes(p);
@@ -291,7 +325,7 @@ export function grantablePermissions(g: Grantor, targetRoles: readonly RoleCode[
     ? ALL_PERMISSIONS.filter((p) => !NEVER_GRANTED_INDIVIDUALLY.includes(p))
     : [...new Set(scope.flatMap((m) => DELEGABLE[m]))];
   if (targetRoles.includes('aprendiz')) list = list.filter((p) => APPRENTICE_ALLOWED.includes(p));
-  return list;
+  return list.filter((p) => MODEL_PERMISSIONS[g.organizationType ?? 'hospitalar'].includes(p));
 }
 
 /** Areas whose apprentice markers a grantor may use (a module administrator: its module; alerts for any manager). */

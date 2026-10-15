@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import { DEFAULT_ROLE_PERMISSIONS, ROLE_LABEL, ROLE_MODULE, cnpjProblem, normalizeCnpj, rolesOfModel, type OrganizationType } from '@ccih/domain';
+import { DEFAULT_ROLE_PERMISSIONS, effectivePermissions, ROLE_LABEL, ROLE_MODULE, cnpjProblem, normalizeCnpj, rolesOfModel, type OrganizationType } from '@ccih/domain';
 import type { DB } from '../db/types';
 import { audit } from '../audit/audit';
 import { createFounder, founderProblem, type FounderResult } from './founder';
@@ -39,7 +39,7 @@ export async function createOrganization(db: Kysely<DB>, input: OrganizationInpu
   const institutionId = await db.transaction().execute(async (trx) => {
     const inst = await trx.insertInto('institution').values({ name, legal_name: input.legalName?.trim() || null, cnpj, cnes: null, timezone, data_origin: 'real', organization_type: input.type }).returning('id').executeTakeFirstOrThrow();
     for (const code of rolesOfModel(input.type)) {
-      await trx.insertInto('role').values({ institution_id: inst.id, code, name: ROLE_LABEL[code], permissions: DEFAULT_ROLE_PERMISSIONS[code], module: ROLE_MODULE[code] }).execute();
+      await trx.insertInto('role').values({ institution_id: inst.id, code, name: ROLE_LABEL[code], permissions: effectivePermissions(DEFAULT_ROLE_PERMISSIONS[code], input.type), module: ROLE_MODULE[code] }).execute();
     }
     await audit(trx, { institutionId: inst.id, userId: null, login: 'operador', ip: null, userAgent: 'org:create' }, {
       action: 'create', entity: 'institution', entityId: inst.id, after: { name, organizationType: input.type, cnpj, timezone }, context: { justification: 'Criação da organização pelo comando do operador da plataforma.' },

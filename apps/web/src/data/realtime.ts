@@ -6,6 +6,7 @@ export type RealtimeStatus = 'ativo' | 'reconectando' | 'periodico' | 'desligado
 
 /** Topic of a server event → first segment of the query keys to refresh (only active queries refetch). */
 export const TOPIC_KEYS: Record<string, string[]> = {
+  consultoria: ['consulting'],
   clinico: ['patients', 'patient', 'cases', 'case', 'surgeries', 'surgery', 'cultures', 'culture', 'census', 'surveillance', 'facts'],
   cme: ['cme', 'surgery', 'facts'],
   qualidade: ['quality', 'bundles', 'hand-hygiene', 'trainings', 'supplies', 'facts'],

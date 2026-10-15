@@ -25,6 +25,7 @@ import { scannerFromEnv, type Scanner } from './services/storage/antivirus';
 import { cmeRoutes } from './routes/cme';
 import { cmeFlowRoutes } from './routes/cme-flow';
 import { cmeLabelRoutes } from './routes/cme-labels';
+import { consultingClientRoutes } from './routes/consulting-clients';
 import { notificationRoutes } from './routes/notifications';
 import { realtimeRoutes } from './routes/realtime';
 import { userRoutes } from './routes/users';
@@ -130,6 +131,11 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
         await hospital.register(cmeRoutes, { db });
         await hospital.register(cmeFlowRoutes, { db, env });
         await hospital.register(cmeLabelRoutes, { db });
+      });
+      // Consulting model: portfolio and consulting operations. Hospitals do not see these routes.
+      await api.register(async (consulting) => {
+        consulting.addHook('preHandler', requireModel(db, 'consultoria'));
+        await consulting.register(consultingClientRoutes, { db });
       });
     },
     { prefix: '/api' },

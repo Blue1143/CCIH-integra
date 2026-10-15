@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Kysely } from 'kysely';
-import { DEFAULT_ROLE_PERMISSIONS, ROLE_LABEL, ROLE_MODULE, addDays, addMonths, monthStart, parametersFromRules, todayIn, type Permission, type RoleCode } from '@ccih/domain';
+import { DEFAULT_ROLE_PERMISSIONS, effectivePermissions, ROLE_LABEL, ROLE_MODULE, rolesOfModel, addDays, addMonths, monthStart, parametersFromRules, todayIn, type Permission, type RoleCode } from '@ccih/domain';
 import { DEMO_CONFIG, DEMO_LOAD_POLICY, DEMO_REFERENCES, DEMO_SECTORS, DEMO_UNITS, WARD_PROFILES, generateFacts } from '@ccih/demo-data';
 import { audit } from '../audit/audit';
 import { hashPassword, passwordProblem } from '../security/crypto';
@@ -76,8 +76,8 @@ export async function seedDemo(db: Kysely<DB>, opts: SeedOptions = {}): Promise<
       }
     }
 
-    for (const [code, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
-      await trx.insertInto('role').values({ institution_id: institutionId, code, name: ROLE_LABEL[code as RoleCode], permissions, module: ROLE_MODULE[code as RoleCode] }).execute();
+    for (const code of rolesOfModel('hospitalar')) {
+      await trx.insertInto('role').values({ institution_id: institutionId, code, name: ROLE_LABEL[code], permissions: effectivePermissions(DEFAULT_ROLE_PERMISSIONS[code], 'hospitalar'), module: ROLE_MODULE[code] }).execute();
     }
 
     const credentials: SeedResult['credentials'] = [];

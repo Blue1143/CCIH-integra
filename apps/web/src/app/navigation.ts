@@ -28,8 +28,8 @@ export const NAVIGATION: NavGroup[] = [
   {
     label: 'Consultoria',
     items: [
-      { path: '/consultoria/clientes', permissions: [], models: ['consultoria'], label: 'Clientes', phase: 'M3', summary: 'Carteira de clientes, estabelecimentos, unidades, contatos e consultores responsáveis.',
-        planned: ['Ficha do cliente com histórico cronológico', 'Vários estabelecimentos por cliente', 'Consultor responsável e troca sem perder histórico'] },
+      { path: '/consultoria/clientes', permissions: ['consultoria:clients:view'], models: ['consultoria'], label: 'Clientes', phase: null, summary: 'Carteira de clientes, estabelecimentos, unidades, contatos, consultores responsáveis e histórico de atendimentos.' },
+      { path: '/consultoria/equipe', permissions: ['consultoria:portfolio:assign', 'consultoria:portfolio:all'], models: ['consultoria'], label: 'Equipe e carteiras', phase: null, summary: 'Quem atende cada cliente: distribuição da carteira entre os consultores.' },
       { path: '/consultoria/contratos', permissions: [], models: ['consultoria'], label: 'Contratos', phase: 'M4', summary: 'Contratos, serviços, escopo, vigência, aditivos e previsto × realizado.',
         planned: ['Alertas de vencimento e renovação', 'Frequência de visitas e entregas previstas', 'Dados financeiros só para perfis autorizados'] },
       { path: '/consultoria/agenda', permissions: [], models: ['consultoria'], label: 'Agenda', phase: 'M5', summary: 'Visitas, reuniões, auditorias, inspeções, treinamentos e entregas.',

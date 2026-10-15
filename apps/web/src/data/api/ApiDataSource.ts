@@ -1,5 +1,5 @@
 import type { FactRow, InstitutionData, WithProvenance } from '@ccih/domain';
-import type { AdminPort, AuthPort, CcihDataSource, ClinicalPort, CmePort, FactsQuery, InboxPort, RealtimePort, OperationsPort, OrgAdminPort, SessionInfo } from '../port';
+import type { AdminPort, AuthPort, CcihDataSource, ClinicalPort, CmePort, ConsultingPort, FactsQuery, InboxPort, RealtimePort, OperationsPort, OrgAdminPort, SessionInfo } from '../port';
 import { createHttpClient, type HttpClient } from './http';
 
 /** Backend source: every authorization decision is taken by the API; the UI only reflects it. */
@@ -12,6 +12,7 @@ export class ApiDataSource implements CcihDataSource {
   readonly operations: OperationsPort;
   readonly cme: CmePort;
   readonly inbox: InboxPort;
+  readonly consulting: ConsultingPort;
   readonly realtime: RealtimePort;
   private readonly http: HttpClient;
 
@@ -137,6 +138,18 @@ export class ApiDataSource implements CcihDataSource {
       cancelLabel: (l, reason) => http.send('POST', `/cme/labels/${id(l)}/cancel`, { reason }),
     };
     this.realtime = { config: () => http.get('/realtime'), eventsUrl: `${base}/events` };
+    this.consulting = {
+      clients: (q) => http.get('/consulting/clients', q),
+      client: (c) => http.get(`/consulting/clients/${id(c)}`),
+      saveClient: (c, input) => (c ? http.send('PUT', `/consulting/clients/${id(c)}`, input) : http.send('POST', '/consulting/clients', input)),
+      saveContact: (c, contact, input) => (contact ? http.send('PUT', `/consulting/contacts/${id(contact)}`, input) : http.send('POST', `/consulting/clients/${id(c)}/contacts`, input)),
+      saveEstablishment: (c, e, input) => (e ? http.send('PUT', `/consulting/establishments/${id(e)}`, input) : http.send('POST', `/consulting/clients/${id(c)}/establishments`, input)),
+      saveUnit: (e, u, input) => (u ? http.send('PUT', `/consulting/units/${id(u)}`, input) : http.send('POST', `/consulting/establishments/${id(e)}/units`, input)),
+      assign: (c, input) => http.send('POST', `/consulting/clients/${id(c)}/assignments`, input),
+      endAssignment: (a, input) => http.send('POST', `/consulting/assignments/${id(a)}/end`, input),
+      addEvent: (c, input) => http.send('POST', `/consulting/clients/${id(c)}/events`, input),
+      team: () => http.get('/consulting/team'),
+    };
     this.inbox = {
       notifications: (q) => http.get(`/me/notifications?situacao=${q.situacao}`),
       markRead: (n) => ok(http.send('POST', `/me/notifications/${id(n)}/read`)),

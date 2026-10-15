@@ -185,3 +185,9 @@ details.ig-fieldset > summary { cursor: pointer; }
   .label-print-page .cme-label { border: 0; }
   .label-print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ---------- Consulting portfolio ---------- */
+.consulting-establishment { border-top: 1px solid var(--line); padding-top: var(--space-3); margin-top: var(--space-3); }
+.consulting-establishment:first-of-type { border-top: 0; margin-top: 0; }
+.consulting-portfolio { margin: 0; padding-left: 1.1em; }
+.consulting-links li { margin-bottom: var(--space-2); }

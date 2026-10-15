@@ -253,7 +253,33 @@ O plano da CME pendente (E1, H1, H2, I1, G2, I2) fica pausado até M14, exceto o
 | M0 — correção | Feita | A varredura de corpo encontrou **um vazamento real**: a leitura da CME (`POST /cme/scan` e `POST /cme/processes/loose`) aceitava carga e setores de outra organização e a lista de leituras devolvia o código da carga alheia. Corrigido na rota (validação da organização) e na consulta (junção limitada à organização) |
 | M1 | Concluída | Migração 0012 (`organization_type`, razão social, CNPJ único, guarda do modelo no banco, perfil e escopo presos à organização do usuário); corte de permissões por modelo na sessão; rotas hospitalares agrupadas com `requireModel('hospitalar')` (404 e log para outra organização); `/auth/me` com a organização; perfis atribuíveis por modelo; comando `org:create`; consultoria de demonstração no `db:reset`; menu, início e tela de usuários por modelo; testes de domínio, API, interface e E2E |
 | M2 | Concluída | Regressão hospitalar: todas as suítes anteriores verdes sem mudar expectativas (exceto a de ambiente: produção já exigia a chave de anexos), E2E hospitalares e por perfil verdes |
-| M3 em diante | Pendentes | — |
+| M3 | Concluída | Migração 0013 (perfis da consultoria, `client`, `client_contact`, `client_establishment`, `client_unit`, `client_assignment` com histórico, `client_event` somente inserção; vínculos compostos com a organização; tabelas exclusivas de consultoria); escopo por cliente na sessão; rotas `/api/consulting/*`; telas Clientes, ficha do cliente e Equipe e carteiras; consultoria de demonstração com equipe e 3 clientes sintéticos; testes de domínio, API (permissões, escopo, substituição com histórico, isolamento entre consultorias, varredura do consultor sobre cliente não atribuído, descida/subida da migração), interface e E2E. A varredura de isolamento passou a cobrir consultoria × consultoria e o critério "200 com id de outra organização" foi corrigido (antes nunca disparava); ele apontou `GET /supplies/:id/movements`, que devolvia lista vazia e agora responde 404 (sem vazamento de dados) |
+| M4 em diante | Pendentes | — |
+
+### Perfis da consultoria (M3)
+
+Gerado de `packages/domain/src/permissions.ts`. Além destas, todos os perfis da consultoria têm as permissões compartilhadas indicadas (alertas; gestão de usuários e log só para o administrador; o gestor consulta usuários). O consultor vê **só os clientes atribuídos a ele**; quem tem `consultoria:portfolio:all` vê a carteira inteira. Observações internas nunca aparecem para consultores nem (no futuro) para o cliente.
+
+| Permissão | Descrição | Administrador do sistema | Gestor da consultoria | Consultor | Assistente administrativo | Financeiro da consultoria |
+| --- | --- | --- | --- | --- | --- | --- |
+| `users:view` | Ver usuários e perfis | ● | ● | — | — | — |
+| `users:manage` | Gerenciar usuários, perfis e escopos (todos os módulos) | ● | — | — | — | — |
+| `audit:view` | Consultar o log de auditoria completo | ● | — | — | — | — |
+| `alerts:view` | Ver alertas | ● | ● | ● | ● | ● |
+| `alerts:manage` | Reconhecer, assumir, resolver e encerrar alertas | ● | ● | ● | — | — |
+| `consultoria:clients:view` | Ver os clientes da carteira (os atribuídos, ou todos com acesso à carteira completa) | ● | ● | ● | ● | ● |
+| `consultoria:clients:edit` | Cadastrar e editar clientes, contatos, estabelecimentos e unidades | ● | ● | — | ● | — |
+| `consultoria:clients:record` | Registrar atendimentos e observações no histórico dos clientes | ● | ● | ● | ● | — |
+| `consultoria:clients:internal_notes` | Ver e editar as observações administrativas internas dos clientes | ● | ● | — | ● | ● |
+| `consultoria:portfolio:all` | Ver toda a carteira de clientes, sem restrição por atribuição | ● | ● | — | ● | ● |
+| `consultoria:portfolio:assign` | Distribuir a carteira: atribuir, substituir e encerrar consultores dos clientes | ● | ● | — | — | — |
+
+**Regras da carteira:**
+- Um responsável ativo por cliente; atribuir um novo responsável encerra o anterior no mesmo dia, com o motivo ("Substituído por …"). Atribuições nunca são apagadas nem reescritas: só encerradas, uma vez (o banco impede o resto).
+- Só consultores, gestores ou administradores ativos da própria consultoria assumem clientes; datas não podem estar no futuro; o consultor perde o acesso no dia do encerramento.
+- O histórico do cliente (cadastro, alterações, atribuições, substituições, atendimentos, observações) é somente inserção.
+- CNPJ do cliente validado e único na carteira da consultoria (outra consultoria pode atender o mesmo estabelecimento, com cadastro próprio).
+
 
 ### Como criar organizações (operador da plataforma)
 

@@ -11,6 +11,9 @@ import { Guard, HomeRoute, NavGuard, RequireSession } from '../features/auth/gua
 
 const named = <K extends string>(load: () => Promise<Record<K, () => ReactElement | null>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
 const ConsultingHomePage = named(() => import('../features/consulting/ConsultingHomePage'), 'ConsultingHomePage');
+const ClientsPage = named(() => import('../features/consulting/ClientsPage'), 'ClientsPage');
+const ClientDetailPage = named(() => import('../features/consulting/ClientDetailPage'), 'ClientDetailPage');
+const TeamPage = named(() => import('../features/consulting/TeamPage'), 'TeamPage');
 const IndicatorsPage = named(() => import('../features/indicators/IndicatorsPage'), 'IndicatorsPage');
 const AdminLayout = named(() => import('../features/admin/AdminLayout'), 'AdminLayout');
 const AdminIndex = named(() => import('../features/admin/AdminLayout'), 'AdminIndex');
@@ -93,6 +96,9 @@ export const routes: RouteObject[] = [
       { path: 'cme/estacoes', element: guarded(['cme:view'], <FlowSetupPage />) },
       { path: 'cme/materiais', element: guarded(['cme:view'], <AssetsPage />) },
       { path: 'cme/etiquetas', element: guarded(['cme:view'], <LabelsPage />) },
+      { path: 'consultoria/clientes', element: guarded(['consultoria:clients:view'], <ClientsPage />) },
+      { path: 'consultoria/clientes/:id', element: guarded(['consultoria:clients:view'], <ClientDetailPage />) },
+      { path: 'consultoria/equipe', element: guarded(['consultoria:portfolio:assign', 'consultoria:portfolio:all'], <TeamPage />) },
       { path: 'conta', element: page(<AccountPage />) },
       { path: 'notificacoes', element: page(<NotificationsPage />) },
       {
