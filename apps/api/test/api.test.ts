@@ -18,6 +18,23 @@ describe('health and anonymous access', () => {
     expect((await ctx.app.inject('/api/health')).json()).toEqual({ status: 'ok' });
   });
 
+  it('answers readiness only with the database at the version of the code', async () => {
+    expect((await ctx.app.inject('/api/ready')).json()).toEqual({ status: 'pronto' });
+    // A pending migration (simulated: the last one unrecorded) makes the instance not ready.
+    const last = (await sql<{ name: string; timestamp: string }>`SELECT name, timestamp FROM kysely_migration ORDER BY name DESC LIMIT 1`.execute(ctx.owner)).rows[0]!;
+    await sql`DELETE FROM kysely_migration WHERE name = ${last.name}`.execute(ctx.owner);
+    try {
+      const res = await ctx.app.inject('/api/ready');
+      expect(res.statusCode).toBe(503);
+      expect(res.json()).toEqual({ status: 'migracao_pendente' });
+    } finally {
+      await sql`INSERT INTO kysely_migration (name, timestamp) VALUES (${last.name}, ${last.timestamp})`.execute(ctx.owner);
+    }
+    expect((await ctx.app.inject('/api/ready')).statusCode).toBe(200);
+    // The app role still cannot read the migration bookkeeping itself.
+    await expect(sql`SELECT name FROM kysely_migration`.execute(ctx.db)).rejects.toThrow(/permission denied/);
+  });
+
   it('answers the session probe without a 401 for anonymous visitors', async () => {
     expect((await ctx.app.inject('/api/auth/me')).json()).toEqual({ authenticated: false });
   });

@@ -33,6 +33,9 @@ const MIGRATIONS: Record<string, Migration> = {
   '0014_consulting_contracts': m0014,
 };
 
+/** Last migration of this version of the code: the readiness check compares it with the database. */
+export const LATEST_MIGRATION = Object.keys(MIGRATIONS).sort().at(-1)!;
+
 export const APPEND_ONLY_TABLES = [
   'iras_case_status', 'ccih_note', 'culture_result', 'isolate', 'susceptibility',
   'quality_audit_status', 'nonconformity_status', 'supply_movement', 'ssi_followup', 'bundle_audit_answer',
@@ -63,6 +66,10 @@ export async function grantAppRole(ownerDb: Kysely<DB>, appRole: string): Promis
   // Clinical history is append-only too (corrections are new rows); the triggers back this up.
   for (const table of APPEND_ONLY_TABLES) await sql`REVOKE UPDATE, DELETE, TRUNCATE ON ${sql.table(table)} FROM ${role}`.execute(ownerDb);
   await sql`REVOKE ALL ON kysely_migration, kysely_migration_lock FROM ${role}`.execute(ownerDb);
+  // Readiness check: the app role reads only the name of the last applied migration, nothing else of the bookkeeping.
+  await sql`CREATE OR REPLACE FUNCTION app_schema_version() RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS 'SELECT max(name) FROM kysely_migration'`.execute(ownerDb);
+  await sql`REVOKE ALL ON FUNCTION app_schema_version() FROM PUBLIC`.execute(ownerDb);
+  await sql`GRANT EXECUTE ON FUNCTION app_schema_version() TO ${role}`.execute(ownerDb);
 }
 
 /** Drops everything (development and tests only). */

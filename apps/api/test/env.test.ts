@@ -9,6 +9,12 @@ describe('environment', () => {
     expect(() => loadEnv({})).toThrow(/DATABASE_URL/);
   });
 
+  it('treats empty variables as not set (containers pass optional settings empty)', () => {
+    const env = loadEnv({ ...base, ...prodKey, NODE_ENV: 'production', FIELD_ENCRYPTION_KEY: '', S3_BUCKET: '', ATTACHMENT_ENCRYPTION_PREVIOUS_KEYS: '' });
+    expect(env.FIELD_ENCRYPTION_KEY).toBeUndefined();
+    expect(() => loadEnv({ ...base, ...prodKey, NODE_ENV: 'production', ATTACHMENT_ENCRYPTION_KEY: '' })).toThrow(/ATTACHMENT_ENCRYPTION_KEY/);
+  });
+
   it('requires secure cookies in production', () => {
     expect(() => loadEnv({ ...base, NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
     expect(loadEnv({ ...base, ...prodKey, NODE_ENV: 'production' }).COOKIE_SECURE).toBe(true);

@@ -4,6 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { sql, type Kysely } from 'kysely';
 import type { DB } from './db/types';
+import { LATEST_MIGRATION } from './db/migrate';
 import type { Env } from './env';
 import { HttpError } from './http/errors';
 import { csrfGuard, requireModel, sessionLoader } from './http/auth';
@@ -106,6 +107,18 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   app.get('/api/health', async () => {
     await sql`SELECT 1`.execute(db);
     return { status: 'ok' };
+  });
+
+  /** Readiness (deploys, load balancers): database reachable and every migration of this version applied. */
+  app.get('/api/ready', async (req, reply) => {
+    try {
+      const r = await sql<{ v: string | null }>`SELECT app_schema_version() AS v`.execute(db);
+      if (r.rows[0]?.v !== LATEST_MIGRATION) return reply.status(503).send({ status: 'migracao_pendente' });
+      return { status: 'pronto' };
+    } catch (err) {
+      req.log.warn({ err }, 'prontidão: banco indisponível');
+      return reply.status(503).send({ status: 'indisponivel' });
+    }
   });
 
   await app.register(

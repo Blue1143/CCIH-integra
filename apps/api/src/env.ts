@@ -69,7 +69,8 @@ const schema = z.object({
 export type Env = z.infer<typeof schema>;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = schema.safeParse(source);
+  // An empty variable counts as not set (containers pass optional settings as empty strings).
+  const parsed = schema.safeParse(Object.fromEntries(Object.entries(source).filter(([, v]) => v !== '')));
   if (!parsed.success) {
     const fields = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Configuração inválida: ${fields}`);

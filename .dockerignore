@@ -1,0 +1,15 @@
+# Nada de segredos, dependências locais ou artefatos no contexto de build.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/.seed-credentials.local
+**/var
+.git
+playwright-report
+test-results
+coverage
+deploy/backups
+ccih-integra/*.md
+ccih-integra/components

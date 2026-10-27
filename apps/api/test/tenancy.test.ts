@@ -57,7 +57,7 @@ beforeAll(async () => {
 afterAll(async () => teardown(ctx));
 
 /** Routes that end the caller's session or stream forever are not part of the sweep. */
-const SKIP = new Set(['/api/events', '/api/auth/logout', '/api/auth/login', '/api/auth/password', '/api/health']);
+const SKIP = new Set(['/api/events', '/api/auth/logout', '/api/auth/login', '/api/auth/password', '/api/health', '/api/ready']);
 
 describe('isolation between organizations (sweep of every route)', () => {
   it('organization B exists with its own data and users', async () => {

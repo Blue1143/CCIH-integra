@@ -129,6 +129,7 @@ VITE_DATA_SOURCE=api npm run build
 - **API**: `apps/api/dist/server.js` (pacotes internos embutidos). Em produção: `npm ci --omit=dev`, `NODE_ENV=production`, `npm run db:migrate -w @ccih/api` com o papel dono e `node dist/server.js` com o papel de aplicação.
 - Mesma origem para web e `/api` (proxy reverso com TLS), `TRUST_PROXY=true` atrás do proxy, backups cifrados do PostgreSQL com teste de restauração e `audit:verify` agendado.
 - Um ambiente de demonstração mantém a faixa "Ambiente de demonstração" visível; o seed recusa rodar com `NODE_ENV=production`.
+- **Publicação em um servidor com Docker** (banco, migração automática, API, HTTPS automático e backup): `Dockerfile`, pasta [deploy/](deploy/) e o passo a passo em [docs/implantacao/01-PUBLICACAO.md](docs/implantacao/01-PUBLICACAO.md). `GET /api/health` (processo vivo) e `GET /api/ready` (banco acessível e migrações em dia; 503 caso contrário). Comandos do operador no container: `node dist/org-create.js`, `node dist/admin-bootstrap.js`, `node dist/attachments.js`, `node dist/cli.js migrate|verify-audit`.
 
 ## Documentação
 
@@ -139,6 +140,7 @@ VITE_DATA_SOURCE=api npm run build
 - [CONTRIBUTING.md](CONTRIBUTING.md) — regras do projeto e testes
 - [docs/auditoria/](docs/auditoria/) — auditorias técnicas (Fase 1, reauditoria 1.1, Fases 2 a 5)
 - [docs/ROADMAP.md](docs/ROADMAP.md) — fases, dependências e riscos
+- [docs/implantacao/01-PUBLICACAO.md](docs/implantacao/01-PUBLICACAO.md) — publicação para testes reais e produção
 - `ccih-integra/` — design system publicado (guia de marca, conteúdo técnico, tokens)
 
 ## Aviso clínico

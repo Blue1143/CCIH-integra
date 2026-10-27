@@ -43,10 +43,15 @@ async function seed() {
     // A second, empty organization of the consulting model (its own login; no data shared with the hospital).
     const consulting = await seedDemoConsulting(db, opts);
     const credentials = [...result.credentials, ...consulting.credentials];
-    const file = '.seed-credentials.local';
-    writeFileSync(file, credentials.map((c) => `${c.login}\t${c.role}\t${c.password}`).join('\n') + '\n', { mode: 0o600 });
     console.warn(`Ambiente de demonstração criado: hospital com ${result.credentials.length} usuários sintéticos e ${result.facts} fatos mensais; consultoria de demonstração com ${consulting.credentials.length} usuários e 3 clientes sintéticos.`);
-    console.warn(`Credenciais de demonstração gravadas em apps/api/${file} (arquivo ignorado pelo git).`);
+    if (process.env.SEED_PASSWORD) {
+      // The operator chose the password (homologation, CI): nothing to write down.
+      console.warn(`Usuários de demonstração: ${credentials.map((c) => c.login).join(', ')} (senha informada em SEED_PASSWORD).`);
+    } else {
+      const file = '.seed-credentials.local';
+      writeFileSync(file, credentials.map((c) => `${c.login}\t${c.role}\t${c.password}`).join('\n') + '\n', { mode: 0o600 });
+      console.warn(`Credenciais de demonstração gravadas em apps/api/${file} (arquivo ignorado pelo git).`);
+    }
   } finally {
     await db.destroy();
   }

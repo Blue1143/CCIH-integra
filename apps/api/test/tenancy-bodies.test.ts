@@ -514,7 +514,7 @@ describe('isolation between organizations: identifiers of B inside bodies and qu
     const after = await bRows();
     const problems: string[] = [];
     for (const [t, rows] of bRowsBefore) for (const r of rows) if (!after.get(t)!.has(r)) problems.push(`linha de B alterada ou apagada em ${t}`);
-    const SKIP = new Set(['/api/events', '/api/auth/logout', '/api/health']);
+    const SKIP = new Set(['/api/events', '/api/auth/logout', '/api/health', '/api/ready']);
     const gets = ctx.app.routeIndex.filter((r) => r.method === 'GET' && r.url.startsWith('/api/') && !r.url.includes(':') && !SKIP.has(r.url));
     expect(gets.length).toBeGreaterThan(40);
     for (const r of gets) {
