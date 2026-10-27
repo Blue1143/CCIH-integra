@@ -7,7 +7,7 @@ import { audit } from '../audit/audit';
 import { actorOf, requireAuth, requirePermission } from '../http/auth';
 import { HttpError, conflict, forbidden, notFound, parse } from '../http/errors';
 
-const Uuid = z.string().uuid();
+const Uuid = z.guid();
 const RowVersion = z.number().int().min(1);
 /** Why the change was made; stored in the audit log with the before/after values. */
 const Justification = z.string().trim().min(10, 'Descreva o motivo (mínimo 10 caracteres).').max(500);

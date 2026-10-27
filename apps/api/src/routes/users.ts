@@ -22,12 +22,12 @@ const Access = z.object({
   functionRole: ROLE,
   extraRoles: z.array(ROLE).max(6),
   scopeAll: z.boolean(),
-  sectorIds: z.array(z.string().uuid()).max(200),
+  sectorIds: z.array(z.guid()).max(200),
   status: z.enum(['pendente', 'ativo', 'suspenso', 'desativado']),
   statusReason: z.string().trim().max(500).nullable(),
   validFrom: IsoDay.nullable(),
   validUntil: IsoDay.nullable(),
-  supervisorId: z.string().uuid().nullable(),
+  supervisorId: z.guid().nullable(),
   grants: z.array(z.object({ permission: z.string().max(60), validUntil: IsoDay.nullable() }).strict()).max(60),
   justification: z.string().trim().min(10, 'Descreva o motivo (mínimo 10 caracteres).').max(500),
 });
@@ -35,7 +35,7 @@ const UserCreate = Access.extend({ login: z.string().trim().toLowerCase().regex(
 const UserUpdate = Access.extend({ rowVersion: z.number().int().min(1) }).strict();
 const ListQuery = z.object({
   q: z.string().trim().max(80).optional(), role: ROLE.optional(), status: z.enum(['pendente', 'ativo', 'suspenso', 'desativado']).optional(),
-  sectorId: z.string().uuid().optional(), createdFrom: IsoDay.optional(), createdTo: IsoDay.optional(), authorizedBy: z.string().uuid().optional(),
+  sectorId: z.guid().optional(), createdFrom: IsoDay.optional(), createdTo: IsoDay.optional(), authorizedBy: z.guid().optional(),
 }).strict();
 
 /** Temporary password shown once to the manager; the user must replace it at first access. */
@@ -206,7 +206,7 @@ export async function userRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> 
   /** Changes of one account, newest first (who, when, before, after and why). */
   app.get<{ Params: { id: string } }>('/users/:id/history', read, async (req): Promise<{ entries: UserHistoryEntry[] }> => {
     const auth = requireAuth(req);
-    const id = parse(z.string().uuid(), req.params.id);
+    const id = parse(z.guid(), req.params.id);
     const target = await db.selectFrom('app_user').select(['id', 'is_founder']).where('id', '=', id).where('institution_id', '=', auth.institutionId).executeTakeFirst();
     if (!target) throw notFound('Usuário');
     const seesAll = auth.permissions.includes('users:view') || auth.permissions.includes('users:manage');
@@ -256,7 +256,7 @@ export async function userRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> 
 
   app.put<{ Params: { id: string } }>('/users/:id', manage, async (req) => {
     const auth = requireAuth(req);
-    const id = parse(z.string().uuid(), req.params.id);
+    const id = parse(z.guid(), req.params.id);
     const b = parse(UserUpdate, req.body);
     const day = await today(auth);
     const target = await db.selectFrom('app_user').select(['id', 'is_founder', 'row_version']).where('id', '=', id).where('institution_id', '=', auth.institutionId).executeTakeFirst();
@@ -296,7 +296,7 @@ export async function userRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> 
 
   app.post<{ Params: { id: string } }>('/users/:id/reset-password', manage, async (req) => {
     const auth = requireAuth(req);
-    const id = parse(z.string().uuid(), req.params.id);
+    const id = parse(z.guid(), req.params.id);
     const { justification } = parse(z.object({ justification: z.string().trim().min(10, 'Descreva o motivo (mínimo 10 caracteres).').max(500) }).strict(), req.body ?? {});
     await guardTarget(req, auth, id);
     const password = temporaryPassword();
@@ -311,7 +311,7 @@ export async function userRoutes(app: FastifyInstance, { db }: { db: Kysely<DB> 
 
   app.post<{ Params: { id: string } }>('/users/:id/unlock', manage, async (req) => {
     const auth = requireAuth(req);
-    const id = parse(z.string().uuid(), req.params.id);
+    const id = parse(z.guid(), req.params.id);
     await guardTarget(req, auth, id);
     await db.updateTable('app_user').set({ locked_until: null, failed_attempts: 0 }).where('id', '=', id).execute();
     await audit(db, actorOf(req), { action: 'unlock', entity: 'app_user', entityId: id });

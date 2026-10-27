@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 /** Shared input schemas (pt-BR messages come from the error map in errors.ts). */
-export const Uuid = z.string().uuid('Identificador inválido.');
+// Any 8-4-4-4-12 hexadecimal identifier (as before zod 4, which made .uuid() check the RFC version bits).
+export const Uuid = z.guid('Identificador inválido.');
 export const RowVersion = z.number().int().min(1);
 export const Justification = z.string().trim().min(10, 'Descreva o motivo (mínimo 10 caracteres).').max(500);
 export const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use AAAA-MM-DD.');
