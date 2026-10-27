@@ -14,6 +14,8 @@ const ConsultingHomePage = named(() => import('../features/consulting/Consulting
 const ClientsPage = named(() => import('../features/consulting/ClientsPage'), 'ClientsPage');
 const ClientDetailPage = named(() => import('../features/consulting/ClientDetailPage'), 'ClientDetailPage');
 const TeamPage = named(() => import('../features/consulting/TeamPage'), 'TeamPage');
+const ContractsPage = named(() => import('../features/consulting/ContractsPage'), 'ContractsPage');
+const ContractDetailPage = named(() => import('../features/consulting/ContractDetailPage'), 'ContractDetailPage');
 const IndicatorsPage = named(() => import('../features/indicators/IndicatorsPage'), 'IndicatorsPage');
 const AdminLayout = named(() => import('../features/admin/AdminLayout'), 'AdminLayout');
 const AdminIndex = named(() => import('../features/admin/AdminLayout'), 'AdminIndex');
@@ -98,6 +100,8 @@ export const routes: RouteObject[] = [
       { path: 'cme/etiquetas', element: guarded(['cme:view'], <LabelsPage />) },
       { path: 'consultoria/clientes', element: guarded(['consultoria:clients:view'], <ClientsPage />) },
       { path: 'consultoria/clientes/:id', element: guarded(['consultoria:clients:view'], <ClientDetailPage />) },
+      { path: 'consultoria/contratos', element: guarded(['consultoria:contracts:view'], <ContractsPage />) },
+      { path: 'consultoria/contratos/:id', element: guarded(['consultoria:contracts:view'], <ContractDetailPage />) },
       { path: 'consultoria/equipe', element: guarded(['consultoria:portfolio:assign', 'consultoria:portfolio:all'], <TeamPage />) },
       { path: 'conta', element: page(<AccountPage />) },
       { path: 'notificacoes', element: page(<NotificationsPage />) },

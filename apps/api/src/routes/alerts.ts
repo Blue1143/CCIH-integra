@@ -59,6 +59,11 @@ export async function alertRoutes(app: FastifyInstance, { db }: { db: Kysely<DB>
       const scope = auth.scope.length ? auth.scope : ['00000000-0000-0000-0000-000000000000'];
       list = list.where((eb) => eb.or([eb('sector_id', 'is', null), eb('sector_id', 'in', scope)]));
     }
+    // Consulting model: a consultant only sees the alerts of the clients assigned to them.
+    if (auth.clientScope) {
+      const clients = auth.clientScope.length ? auth.clientScope : ['00000000-0000-0000-0000-000000000000'];
+      list = list.where((eb) => eb.or([eb('client_id', 'is', null), eb('client_id', 'in', clients)]));
+    }
     return list;
   };
 

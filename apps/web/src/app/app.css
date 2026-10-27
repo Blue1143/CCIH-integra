@@ -191,3 +191,7 @@ details.ig-fieldset > summary { cursor: pointer; }
 .consulting-establishment:first-of-type { border-top: 0; margin-top: 0; }
 .consulting-portfolio { margin: 0; padding-left: 1.1em; }
 .consulting-links li { margin-bottom: var(--space-2); }
+.bar.bar-warn { background: var(--warn); }
+.contract-line { border-top: 1px solid var(--line); padding-top: var(--space-3); margin-top: var(--space-3); }
+.contract-line:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.contract-changes { margin: 4px 0 0; padding-left: 1.1em; }

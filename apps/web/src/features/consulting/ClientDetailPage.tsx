@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ASSIGNMENT_ROLE_LABEL, CLIENT_EVENT_LABEL, CLIENT_STATUS_LABEL, CONTACT_KIND_LABEL, ESTABLISHMENT_KIND_LABEL, SPECIALTY_LABEL, UNIT_KIND_LABEL,
@@ -12,6 +12,8 @@ import { useSession } from '../auth/session';
 import { FormCard } from '../clinical/patient-forms';
 import { DemoTag, PageHeader, Timeline, useTimeZone } from '../clinical/shared';
 import { ClientForm } from './ClientsPage';
+import { contractColumns } from './ContractsPage';
+import { ProposalForm } from './contracts-shared';
 import { AddressFields, CLIENT_STATUS_TONE, EMPTY_ADDRESS, RequireConsulting, addressDraft, addressInput, addressLine, blank, useConsulting, useConsultingMutation } from './shared';
 
 export function ClientDetailPage() {
@@ -19,7 +21,7 @@ export function ClientDetailPage() {
 }
 
 const EVENT_TONE: Record<ClientEventKind, 'ok' | 'info' | 'warn' | 'neutral'> = {
-  cadastro: 'info', alteracao: 'neutral', atribuicao: 'ok', substituicao: 'warn', encerramento_atribuicao: 'neutral', atendimento: 'ok', observacao: 'neutral',
+  cadastro: 'info', alteracao: 'neutral', atribuicao: 'ok', substituicao: 'warn', encerramento_atribuicao: 'neutral', atendimento: 'ok', observacao: 'neutral', contrato: 'info',
 };
 
 function ClientDetail() {
@@ -44,16 +46,35 @@ function ClientDetail() {
             <div><dt>E-mail</dt><dd>{c.email ?? '—'}</dd></div>
             <div><dt>Telefone</dt><dd>{c.phone ?? '—'}</dd></div>
             <div><dt>Endereço</dt><dd>{addressLine(c.address)}</dd></div>
-            <div><dt>Serviços contratados</dt><dd>{c.servicesSummary ?? '—'}</dd></div>
+            <div><dt>Resumo dos serviços</dt><dd>{c.servicesSummary ?? '—'}</dd></div>
             {'internalNotes' in c ? <div><dt>Observações internas</dt><dd>{c.internalNotes ?? '—'}</dd></div> : null}
           </dl>
         </Card>
       )}
       <Consultants client={c} />
+      {session.can('consultoria:contracts:view') ? <ClientContracts client={c} /> : null}
       <Contacts client={c} canEdit={canEdit} />
       <Establishments client={c} canEdit={canEdit} />
       <History client={c} tz={tz} />
     </div>
+  );
+}
+
+/* ---------- Contracts ---------- */
+
+function ClientContracts({ client }: { client: ClientDetailDto }) {
+  const consulting = useConsulting()!;
+  const session = useSession();
+  const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
+  const q = useQuery({ queryKey: ['consulting', 'contracts', { clientId: client.id }], queryFn: () => consulting.contracts({ clientId: client.id, pageSize: 100 }) });
+  const canEdit = session.can('consultoria:contracts:edit') && session.writable && client.status !== 'encerrado';
+  return (
+    <Card title="Contratos e propostas" subtitle="Serviços contratados, vigência e previsto × realizado deste cliente." headingLevel={2}
+      actions={canEdit && !creating ? <Button icon="plus" onClick={() => setCreating(true)}>Nova proposta</Button> : null}>
+      {creating ? <ProposalForm clientId={client.id} contract={null} establishments={client.establishments.map((e) => ({ id: e.id, name: e.name }))} onDone={(saved) => { setCreating(false); if (saved) navigate(`/consultoria/contratos/${saved.id}`); }} /> : null}
+      <DataTable caption="Contratos do cliente" dense rows={q.data?.rows ?? []} rowKey={(k) => k.id} columns={contractColumns(false)} state={q.isPending ? 'loading' : q.isError ? 'error' : 'ready'} emptyMessage="Nenhum contrato ou proposta." />
+    </Card>
   );
 }
 

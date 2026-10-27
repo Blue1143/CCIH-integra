@@ -62,6 +62,10 @@ export const PERMISSIONS = {
   'consultoria:clients:internal_notes': 'Ver e editar as observações administrativas internas dos clientes',
   'consultoria:portfolio:all': 'Ver toda a carteira de clientes, sem restrição por atribuição',
   'consultoria:portfolio:assign': 'Distribuir a carteira: atribuir, substituir e encerrar consultores dos clientes',
+  'consultoria:contracts:view': 'Ver contratos, serviços, vigência, aditivos e previsto × realizado dos clientes visíveis (sem dados financeiros)',
+  'consultoria:contracts:edit': 'Cadastrar propostas, registrar assinatura, aditivos, suspensão e encerramento de contratos',
+  'consultoria:contracts:deliveries': 'Registrar e anular entregas realizadas dos serviços contratados',
+  'consultoria:contracts:financial': 'Ver e editar valores e condições financeiras dos contratos',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -161,11 +165,16 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
   // Consulting model: the manager runs the whole portfolio; the consultant sees only the clients assigned to them.
   gestor_consultoria: [
     'consultoria:clients:view', 'consultoria:clients:edit', 'consultoria:clients:record', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'consultoria:portfolio:assign',
+    'consultoria:contracts:view', 'consultoria:contracts:edit', 'consultoria:contracts:deliveries',
     'users:view', 'alerts:view', 'alerts:manage',
   ],
-  consultor: ['consultoria:clients:view', 'consultoria:clients:record', 'alerts:view', 'alerts:manage'],
-  assistente_consultoria: ['consultoria:clients:view', 'consultoria:clients:edit', 'consultoria:clients:record', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'alerts:view'],
-  financeiro_consultoria: ['consultoria:clients:view', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'alerts:view'],
+  // Sees the scope contracted for the assigned clients and registers what was delivered; never the financial terms.
+  consultor: ['consultoria:clients:view', 'consultoria:clients:record', 'consultoria:contracts:view', 'consultoria:contracts:deliveries', 'alerts:view', 'alerts:manage'],
+  assistente_consultoria: [
+    'consultoria:clients:view', 'consultoria:clients:edit', 'consultoria:clients:record', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all',
+    'consultoria:contracts:view', 'consultoria:contracts:edit', 'consultoria:contracts:deliveries', 'alerts:view',
+  ],
+  financeiro_consultoria: ['consultoria:clients:view', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'consultoria:contracts:view', 'consultoria:contracts:financial', 'alerts:view'],
 };
 
 /* ---------- Delegation: who may give what to whom ---------- */
@@ -175,6 +184,7 @@ export const NEVER_GRANTED_INDIVIDUALLY: Permission[] = [
   'users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme', 'audit:view', 'audit:view:module', 'config:targets:edit', 'config:rules:edit',
   'config:references:edit', 'config:org:edit', 'config:cme_policy:edit', 'ccih:parameters:edit', 'cme:parameters:edit', 'patient:view_identified',
   'export:identified', 'alerts:exception', 'quality:configure', 'consultoria:portfolio:assign', 'consultoria:portfolio:all', 'consultoria:clients:internal_notes',
+  'consultoria:contracts:financial',
 ];
 
 /** Permissions a module administrator may grant individually (express authorization, with justification and validity). */

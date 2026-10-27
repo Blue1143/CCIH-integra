@@ -12,8 +12,8 @@ import { HttpError, conflict, notFound, parse } from '../http/errors';
 import { IsoDate, OptionalText, PageQuery, RowVersion, Text, Uuid } from '../http/schemas';
 import { escapeLike, institutionOrigin } from '../repositories/clinical';
 
-type Db = Kysely<DB> | Transaction<DB>;
-const NO_ID = '00000000-0000-0000-0000-000000000000';
+export type Db = Kysely<DB> | Transaction<DB>;
+export const NO_ID = '00000000-0000-0000-0000-000000000000';
 
 const Address = z.object({
   street: OptionalText(160), number: OptionalText(20), district: OptionalText(80), city: OptionalText(80),
@@ -48,20 +48,20 @@ const ListQuery = z.object({
   q: z.string().trim().max(80).optional(), status: z.enum(['prospecto', 'ativo', 'suspenso', 'encerrado']).optional(), kind: Kind.optional(), consultantId: Uuid.optional(), ...PageQuery,
 }).strict();
 
-const problemsError = (problems: Array<{ path: string; message: string }>) => new HttpError(400, 'validacao', problems[0]!.message, problems);
-const fieldError = (path: string, message: string) => problemsError([{ path, message }]);
+export const problemsError = (problems: Array<{ path: string; message: string }>) => new HttpError(400, 'validacao', problems[0]!.message, problems);
+export const fieldError = (path: string, message: string) => problemsError([{ path, message }]);
 
 /** Clients this person may see: null = every client of the consultancy. */
-const scopeOf = (auth: AuthContext) => auth.clientScope;
-const inScope = (auth: AuthContext, clientId: string) => clientInScope(scopeOf(auth), clientId);
+export const scopeOf = (auth: AuthContext) => auth.clientScope;
+export const inScope = (auth: AuthContext, clientId: string) => clientInScope(scopeOf(auth), clientId);
 
-async function institutionToday(db: Db, institutionId: string) {
+export async function institutionToday(db: Db, institutionId: string) {
   const inst = await db.selectFrom('institution').select('timezone').where('id', '=', institutionId).executeTakeFirstOrThrow();
   return todayIn(inst.timezone);
 }
 
 /** The client, if it exists in the user's organization and is within their scope (404 otherwise, as if it did not exist). */
-async function findClient(db: Db, auth: AuthContext, id: string, lock = false): Promise<Selectable<ClientTable>> {
+export async function findClient(db: Db, auth: AuthContext, id: string, lock = false): Promise<Selectable<ClientTable>> {
   let q = db.selectFrom('client').selectAll().where('id', '=', id).where('institution_id', '=', auth.institutionId);
   if (lock) q = q.forUpdate();
   const row = await q.executeTakeFirst();
@@ -75,8 +75,8 @@ async function findEstablishment(db: Db, auth: AuthContext, id: string): Promise
   return row;
 }
 
-async function event(trx: Db, auth: AuthContext, clientId: string, kind: ClientEventKind, summary: string, detail: string | null, occurredOn: string) {
-  await trx.insertInto('client_event').values({ institution_id: auth.institutionId, client_id: clientId, kind, summary, detail, occurred_on: occurredOn, actor_id: auth.userId, actor_name: auth.displayName }).execute();
+export async function event(trx: Db, auth: AuthContext, clientId: string, kind: ClientEventKind, summary: string, detail: string | null, occurredOn: string, contractId: string | null = null) {
+  await trx.insertInto('client_event').values({ institution_id: auth.institutionId, client_id: clientId, kind, summary, detail, occurred_on: occurredOn, actor_id: auth.userId, actor_name: auth.displayName, contract_id: contractId }).execute();
 }
 
 const addressOf = (r: { street: string | null; number: string | null; district: string | null; city: string | null; state: string | null; zip: string | null }) =>

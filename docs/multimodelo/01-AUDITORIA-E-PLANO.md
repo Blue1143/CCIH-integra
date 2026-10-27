@@ -166,7 +166,7 @@ Três camadas, todas no servidor:
 | --- | --- | --- |
 | Administrador da consultoria (conta criadora ou administrador) | Organização, equipe, perfis, toda a carteira, contratos, modelos, liberações | — |
 | Gestor da consultoria | Carteira, distribuição de clientes, contratos, agenda geral, relatórios consolidados | Administração do sistema |
-| Consultor (CCIH, CME, qualidade — por especialidade) | Clientes atribuídos: agenda, diagnósticos, auditorias, NC, planos, indicadores, documentos, relatórios, treinamentos | Clientes não atribuídos; contratos e dados financeiros |
+| Consultor (CCIH, CME, qualidade — por especialidade) | Clientes atribuídos: escopo contratado (serviços, vigência, previsto × realizado) e registro das entregas, agenda, diagnósticos, auditorias, NC, planos, indicadores, documentos, relatórios, treinamentos | Clientes não atribuídos; alterar contratos; dados financeiros |
 | Assistente administrativo | Cadastro de clientes e contatos, agenda, contratos (sem dados técnicos restritos) | Achados técnicos, liberação |
 | Financeiro (opcional) | Valores e condições de contrato | Registros técnicos |
 | Cliente — gestor do estabelecimento | Área do cliente: indicadores, relatórios e documentos liberados, NC e planos do próprio cliente | Qualquer registro interno ou de outro cliente |
@@ -254,9 +254,10 @@ O plano da CME pendente (E1, H1, H2, I1, G2, I2) fica pausado até M14, exceto o
 | M1 | Concluída | Migração 0012 (`organization_type`, razão social, CNPJ único, guarda do modelo no banco, perfil e escopo presos à organização do usuário); corte de permissões por modelo na sessão; rotas hospitalares agrupadas com `requireModel('hospitalar')` (404 e log para outra organização); `/auth/me` com a organização; perfis atribuíveis por modelo; comando `org:create`; consultoria de demonstração no `db:reset`; menu, início e tela de usuários por modelo; testes de domínio, API, interface e E2E |
 | M2 | Concluída | Regressão hospitalar: todas as suítes anteriores verdes sem mudar expectativas (exceto a de ambiente: produção já exigia a chave de anexos), E2E hospitalares e por perfil verdes |
 | M3 | Concluída | Migração 0013 (perfis da consultoria, `client`, `client_contact`, `client_establishment`, `client_unit`, `client_assignment` com histórico, `client_event` somente inserção; vínculos compostos com a organização; tabelas exclusivas de consultoria); escopo por cliente na sessão; rotas `/api/consulting/*`; telas Clientes, ficha do cliente e Equipe e carteiras; consultoria de demonstração com equipe e 3 clientes sintéticos; testes de domínio, API (permissões, escopo, substituição com histórico, isolamento entre consultorias, varredura do consultor sobre cliente não atribuído, descida/subida da migração), interface e E2E. A varredura de isolamento passou a cobrir consultoria × consultoria e o critério "200 com id de outra organização" foi corrigido (antes nunca disparava); ele apontou `GET /supplies/:id/movements`, que devolvia lista vazia e agora responde 404 (sem vazamento de dados) |
-| M4 em diante | Pendentes | — |
+| M4 | Concluída | Migração 0014 (`contract`, `contract_service`, `contract_amendment` somente inserção, `contract_delivery` anulável e nunca apagada, `contract_financial` em tabela própria; `client_event` ganha o tipo "contrato" e o vínculo com o contrato; `alert.client_id`; permissões novas nos perfis das consultorias existentes); rotas `/api/consulting/contracts*`, `/contract-services/:id/deliveries`, `/contract-deliveries/:id/void`; alertas de vencimento, de contrato vencido e de entregas abaixo do previsto, filtrados pelo escopo de clientes; telas Contratos, ficha do contrato e contratos na ficha do cliente e no início; testes de domínio (períodos, previsto × realizado, alertas), API (fluxo completo, gatilhos do banco, financeiro restrito, alertas por escopo, varredura do consultor, descida/subida da migração), interface e E2E |
+| M5 em diante | Pendentes | — |
 
-### Perfis da consultoria (M3)
+### Perfis da consultoria (M3–M4)
 
 Gerado de `packages/domain/src/permissions.ts`. Além destas, todos os perfis da consultoria têm as permissões compartilhadas indicadas (alertas; gestão de usuários e log só para o administrador; o gestor consulta usuários). O consultor vê **só os clientes atribuídos a ele**; quem tem `consultoria:portfolio:all` vê a carteira inteira. Observações internas nunca aparecem para consultores nem (no futuro) para o cliente.
 
@@ -273,12 +274,24 @@ Gerado de `packages/domain/src/permissions.ts`. Além destas, todos os perfis da
 | `consultoria:clients:internal_notes` | Ver e editar as observações administrativas internas dos clientes | ● | ● | — | ● | ● |
 | `consultoria:portfolio:all` | Ver toda a carteira de clientes, sem restrição por atribuição | ● | ● | — | ● | ● |
 | `consultoria:portfolio:assign` | Distribuir a carteira: atribuir, substituir e encerrar consultores dos clientes | ● | ● | — | — | — |
+| `consultoria:contracts:view` | Ver contratos, serviços, vigência, aditivos e previsto × realizado dos clientes visíveis (sem dados financeiros) | ● | ● | ● | ● | ● |
+| `consultoria:contracts:edit` | Cadastrar propostas, registrar assinatura, aditivos, suspensão e encerramento de contratos | ● | ● | — | ● | — |
+| `consultoria:contracts:deliveries` | Registrar e anular entregas realizadas dos serviços contratados | ● | ● | ● | ● | — |
+| `consultoria:contracts:financial` | Ver e editar valores e condições financeiras dos contratos | ● | — | — | — | ● |
 
 **Regras da carteira:**
 - Um responsável ativo por cliente; atribuir um novo responsável encerra o anterior no mesmo dia, com o motivo ("Substituído por …"). Atribuições nunca são apagadas nem reescritas: só encerradas, uma vez (o banco impede o resto).
 - Só consultores, gestores ou administradores ativos da própria consultoria assumem clientes; datas não podem estar no futuro; o consultor perde o acesso no dia do encerramento.
 - O histórico do cliente (cadastro, alterações, atribuições, substituições, atendimentos, observações) é somente inserção.
 - CNPJ do cliente validado e único na carteira da consultoria (outra consultoria pode atender o mesmo estabelecimento, com cadastro próprio).
+
+**Regras dos contratos (M4):**
+- Proposta → assinatura (exige início da vigência e ao menos um serviço) → vigente ⇄ suspenso → encerrado; proposta pode ser recusada. Suspensão, retomada, recusa e encerramento exigem motivo; tudo vai para o histórico do contrato e do cliente. A assinatura torna ativo um cliente "prospecto".
+- Enquanto proposta, tudo é editável. Depois da assinatura, mudanças só por **aditivo** (numerado, somente inserção): novo término, renovação automática, inclusão, alteração ou encerramento de serviços. Alterar a quantidade ou o período de um serviço encerra a linha antiga na véspera do efeito e cria outra ligada a ela, preservando as entregas já feitas. O banco impede apagar ou reescrever serviços de contrato assinado.
+- **Previsto × realizado** (`planVsDone`, sem fórmula clínica): cada serviço tem quantidade por período (mês, bimestre, trimestre, semestre, ano ou contrato inteiro), contado a partir do início do serviço; realizado = entregas registradas com data dentro do período. A tela mostra o período atual e o acumulado dos períodos encerrados. Não há rateio de período parcial.
+- Entregas: data não futura e dentro da vigência do serviço; registradas por consultor, gestor ou assistente; uma entrega errada é **anulada com motivo** (o banco impede apagar ou alterar).
+- **Vencimento:** situação "Vencido" para contrato aberto após o término; alerta "perto do vencimento" dentro do aviso do contrato (padrão 60 dias; alta prioridade a 15 dias ou menos), alerta "vencido sem renovação ou encerramento" e alerta de "entregas abaixo do previsto" no último período encerrado. Os alertas fecham sozinhos quando o aditivo, o encerramento ou a entrega resolvem a condição, e só aparecem para quem vê o cliente.
+- **Financeiro:** valores e condições ficam em tabela própria e só são lidos e gravados com `consultoria:contracts:financial` (financeiro e administrador; não é concedido individualmente). Não há cobrança, boleto ou integração bancária simulada.
 
 
 ### Como criar organizações (operador da plataforma)

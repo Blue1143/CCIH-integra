@@ -11,7 +11,9 @@ export type AlertKind =
   | 'iras_investigacao_atrasada' | 'dispositivo_prolongado' | 'mdr_novo' | 'treinamento_vencido'
   | 'insumo_critico' | 'plano_acao_atrasado' | 'isc_contato_pendente'
   | 'cme_carga_recolhida' | 'cme_uso_sem_saida' | 'cme_liberada_com_falha' | 'cme_bowie_dick_reprovado' | 'cme_ib_leitura_atrasada' | 'cme_qualificacao'
-  | 'cme_etapa_atrasada' | 'cme_carga_aguardando_decisao' | 'cme_leituras_recusadas' | 'cme_estacao_incompativel' | 'cme_saida_sem_liberacao';
+  | 'cme_etapa_atrasada' | 'cme_carga_aguardando_decisao' | 'cme_leituras_recusadas' | 'cme_estacao_incompativel' | 'cme_saida_sem_liberacao'
+  // Consulting model.
+  | 'contrato_vencendo' | 'contrato_vencido' | 'contrato_entregas_abaixo';
 
 /** Severity (kept under the historical name "priority"). */
 export type AlertPriority = 'critica' | 'alta' | 'media' | 'baixa';
@@ -39,6 +41,9 @@ export const ALERT_KIND_LABEL: Record<AlertKind, string> = {
   cme_leituras_recusadas: 'Leituras recusadas repetidas numa estação',
   cme_estacao_incompativel: 'Leitura em estação incompatível com a etapa',
   cme_saida_sem_liberacao: 'Tentativa de saída de material sem liberação',
+  contrato_vencendo: 'Contrato perto do vencimento',
+  contrato_vencido: 'Contrato vencido sem renovação ou encerramento',
+  contrato_entregas_abaixo: 'Entregas abaixo do previsto no contrato',
 };
 export const ALERT_PRIORITY_LABEL: Record<AlertPriority, string> = { critica: 'Crítica', alta: 'Alta', media: 'Média', baixa: 'Baixa' };
 export const ALERT_PRIORITY_ORDER: AlertPriority[] = ['critica', 'alta', 'media', 'baixa'];
@@ -61,6 +66,7 @@ export const ALERT_KIND_CATEGORY: Record<AlertKind, AlertCategory> = {
   cme_ib_leitura_atrasada: 'pendencia_tempo', cme_qualificacao: 'pendencia_tempo',
   cme_etapa_atrasada: 'pendencia_tempo', cme_carga_aguardando_decisao: 'pendencia_tempo', cme_leituras_recusadas: 'erro_operacional', cme_estacao_incompativel: 'erro_operacional',
   cme_saida_sem_liberacao: 'violacao_sequencia',
+  contrato_vencendo: 'pendencia_tempo', contrato_vencido: 'pendencia_tempo', contrato_entregas_abaixo: 'pendencia_tempo',
 };
 
 /**
@@ -71,7 +77,7 @@ export const ALERT_KIND_BLOCKING: Record<AlertKind, boolean> = {
   iras_investigacao_atrasada: false, dispositivo_prolongado: false, mdr_novo: false, treinamento_vencido: false, insumo_critico: false, plano_acao_atrasado: false,
   isc_contato_pendente: false, cme_carga_recolhida: false, cme_uso_sem_saida: false, cme_liberada_com_falha: true, cme_bowie_dick_reprovado: true,
   cme_ib_leitura_atrasada: false, cme_qualificacao: false, cme_etapa_atrasada: false, cme_carga_aguardando_decisao: false, cme_leituras_recusadas: false,
-  cme_estacao_incompativel: false, cme_saida_sem_liberacao: false,
+  cme_estacao_incompativel: false, cme_saida_sem_liberacao: false, contrato_vencendo: false, contrato_vencido: false, contrato_entregas_abaixo: false,
 };
 
 /** Statuses still requiring work (everything but closed). */
@@ -95,6 +101,7 @@ export const ALERT_KIND_PERMISSION: Record<AlertKind, Permission> = {
   insumo_critico: 'quality:view', plano_acao_atrasado: 'quality:view', isc_contato_pendente: 'surgery:view',
   cme_carga_recolhida: 'cme:view', cme_liberada_com_falha: 'cme:view', cme_uso_sem_saida: 'cme:view', cme_bowie_dick_reprovado: 'cme:view', cme_ib_leitura_atrasada: 'cme:view', cme_qualificacao: 'cme:view',
   cme_etapa_atrasada: 'cme:view', cme_carga_aguardando_decisao: 'cme:view', cme_leituras_recusadas: 'cme:view', cme_estacao_incompativel: 'cme:view', cme_saida_sem_liberacao: 'cme:view',
+  contrato_vencendo: 'consultoria:contracts:view', contrato_vencido: 'consultoria:contracts:view', contrato_entregas_abaixo: 'consultoria:contracts:view',
 };
 
 export interface AlertCandidate {
@@ -106,6 +113,8 @@ export interface AlertCandidate {
   entity: string;
   entityId: string | null;
   sectorId: string | null;
+  /** Client of the consultancy concerned (consulting model): the alert follows the client scope. */
+  clientId?: string | null;
   /** Screen where the alert is handled. */
   link: string | null;
   /** Deadline (institution date) that was or will be missed, when the alert is about time. */

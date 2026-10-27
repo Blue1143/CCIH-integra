@@ -5,7 +5,7 @@ import type {
   QualityAuditDetail, QualityAuditDto, StaffMember, SupplyDto, SupplyMovementDto, SurveillanceRow, TrainingCoveragePayload, TrainingDto, TrainingSessionDto,
   AttachmentDto, AttachmentPolicyDto, CmeOverview, CmeTestDto, EquipmentStatus, IbControl, InstrumentSetDto, LoadDetail, LoadStatus, LoadSummary, PackagingType, RecordedTestType,
   SterilizerDto, SterilizerType, TestResult, TraceResult,
-  OrganizationType, AssignmentRole, ClientDetailDto, ClientInput, ClientSummaryDto, ContactInput, EstablishmentInput, Specialty, TeamMemberDto, UnitInput, LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
+  OrganizationType, AssignmentRole, AmendmentInput, ContractDetailDto, ContractInput, ContractStatus, ContractSummaryDto, FinancialInput, ClientDetailDto, ClientInput, ClientSummaryDto, ContactInput, EstablishmentInput, Specialty, TeamMemberDto, UnitInput, LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
   AssetDto, CmeSectorDto, UseRecorded, UserNotificationDto, RoleCode, UserAccessInput, UserAccountDto, UserHistoryEntry, FlowConfigDto, InputMethod, ProcessDetail, ProcessStep, ProcessSummaryDto, ScanConfig, ScanEventDto, ScanResponse, StationDto, Symbology,
 } from '@ccih/domain';
 
@@ -350,6 +350,15 @@ export interface ConsultingPort {
   endAssignment(id: string, input: { endsOn: string | null; reason: string }): Promise<ClientDetailDto>;
   addEvent(clientId: string, input: { kind: 'atendimento' | 'observacao'; summary: string; detail: string | null; occurredOn: string | null }): Promise<ClientDetailDto>;
   team(): Promise<{ members: TeamMemberDto[] }>;
+  contracts(q: Query): Promise<Paged<ContractSummaryDto>>;
+  contract(id: string): Promise<ContractDetailDto>;
+  /** New proposal of a client (contractId null) or edit of a proposal. */
+  saveProposal(clientId: string | null, contractId: string | null, input: ContractInput & { rowVersion: number | null }): Promise<ContractDetailDto>;
+  setContractStatus(id: string, input: { status: ContractStatus; on: string | null; reason: string | null; rowVersion: number }): Promise<ContractDetailDto>;
+  addAmendment(id: string, input: AmendmentInput & { rowVersion: number }): Promise<ContractDetailDto>;
+  addDelivery(serviceId: string, input: { occurredOn: string | null; quantity: number; description: string }): Promise<ContractDetailDto>;
+  voidDelivery(id: string, reason: string): Promise<ContractDetailDto>;
+  saveFinancial(id: string, input: FinancialInput & { rowVersion: number | null }): Promise<ContractDetailDto>;
 }
 
 export interface RealtimeConfig { mode: 'sse' | 'polling'; pollSeconds: number }

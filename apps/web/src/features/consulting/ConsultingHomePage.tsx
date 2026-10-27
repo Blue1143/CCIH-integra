@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ORGANIZATION_TYPE_LABEL } from '@ccih/domain';
-import { Card, StatusBadge } from '@ccih/ui';
+import { Card, DataTable, StatusBadge } from '@ccih/ui';
+import { contractColumns } from './ContractsPage';
+import { useConsulting } from './shared';
 import { NAVIGATION, phaseLabel } from '../../app/navigation';
 import { useSession } from '../auth/session';
 
@@ -29,6 +32,7 @@ export function ConsultingHomePage() {
           <li><Link to="/conta">Minha conta</Link> — senha e sessão.</li>
         </ul>
       </Card>
+      {session.can('consultoria:contracts:view') ? <ExpiringContracts /> : null}
       <Card title="Módulos da consultoria" subtitle="Entregues por etapas; cada um só aparece como disponível quando registra dados reais." headingLevel={2}>
         <div className="ig-table-scroll"><table className="ig-table">
           <caption className="ig-sr-only">Situação dos módulos da consultoria</caption>
@@ -45,5 +49,19 @@ export function ConsultingHomePage() {
         </table></div>
       </Card>
     </div>
+  );
+}
+
+/** Signed contracts within their notice window or past the end, for who sees contracts (own scope). */
+function ExpiringContracts() {
+  const consulting = useConsulting();
+  const q = useQuery({ queryKey: ['consulting', 'contracts', { expiring: '1' }], queryFn: () => consulting!.contracts({ expiring: '1', pageSize: 10 }), enabled: !!consulting });
+  if (!consulting) return null;
+  return (
+    <Card title="Contratos vencendo ou vencidos" subtitle="Dentro do prazo de aviso de cada contrato. Renove por aditivo ou registre o encerramento." headingLevel={2}
+      actions={<Link to="/consultoria/contratos?vencendo=1">Ver todos</Link>}>
+      <DataTable caption="Contratos vencendo" dense rows={q.data?.rows ?? []} rowKey={(c) => c.id} columns={contractColumns(true).filter((c) => ['code', 'client', 'term', 'situation'].includes(c.key))}
+        state={q.isPending ? 'loading' : q.isError ? 'error' : 'ready'} emptyMessage="Nenhum contrato perto do vencimento." />
+    </Card>
   );
 }

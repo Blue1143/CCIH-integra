@@ -30,8 +30,7 @@ export const NAVIGATION: NavGroup[] = [
     items: [
       { path: '/consultoria/clientes', permissions: ['consultoria:clients:view'], models: ['consultoria'], label: 'Clientes', phase: null, summary: 'Carteira de clientes, estabelecimentos, unidades, contatos, consultores responsáveis e histórico de atendimentos.' },
       { path: '/consultoria/equipe', permissions: ['consultoria:portfolio:assign', 'consultoria:portfolio:all'], models: ['consultoria'], label: 'Equipe e carteiras', phase: null, summary: 'Quem atende cada cliente: distribuição da carteira entre os consultores.' },
-      { path: '/consultoria/contratos', permissions: [], models: ['consultoria'], label: 'Contratos', phase: 'M4', summary: 'Contratos, serviços, escopo, vigência, aditivos e previsto × realizado.',
-        planned: ['Alertas de vencimento e renovação', 'Frequência de visitas e entregas previstas', 'Dados financeiros só para perfis autorizados'] },
+      { path: '/consultoria/contratos', permissions: ['consultoria:contracts:view'], models: ['consultoria'], label: 'Contratos', phase: null, summary: 'Propostas e contratos: serviços, escopo, vigência, aditivos, vencimentos e previsto × realizado.' },
       { path: '/consultoria/agenda', permissions: [], models: ['consultoria'], label: 'Agenda', phase: 'M5', summary: 'Visitas, reuniões, auditorias, inspeções, treinamentos e entregas.',
         planned: ['Agenda individual e compartilhada', 'Lembretes e atrasos internos', 'Pendências geradas por atividade'] },
       { path: '/consultoria/avaliacoes', permissions: [], models: ['consultoria'], label: 'Diagnósticos e auditorias', phase: 'M6', summary: 'Checklists versionados, diagnóstico situacional e auditorias por domínio.',

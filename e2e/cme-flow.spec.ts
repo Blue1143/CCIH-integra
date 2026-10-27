@@ -7,6 +7,9 @@ import { localInput, login, watchProblems } from './support';
  */
 async function scanAs(page: Page, code: string) {
   const field = page.getByLabel('Leitura do código de barras');
+  // The field is cleared and enabled again only after the previous reading was answered.
+  await expect(field).toBeEnabled();
+  await expect(field).toHaveValue('');
   await field.focus();
   await page.keyboard.type(code, { delay: 4 });
   await page.keyboard.press('Enter');

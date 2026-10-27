@@ -26,6 +26,7 @@ import { cmeRoutes } from './routes/cme';
 import { cmeFlowRoutes } from './routes/cme-flow';
 import { cmeLabelRoutes } from './routes/cme-labels';
 import { consultingClientRoutes } from './routes/consulting-clients';
+import { consultingContractRoutes } from './routes/consulting-contracts';
 import { notificationRoutes } from './routes/notifications';
 import { realtimeRoutes } from './routes/realtime';
 import { userRoutes } from './routes/users';
@@ -136,6 +137,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
       await api.register(async (consulting) => {
         consulting.addHook('preHandler', requireModel(db, 'consultoria'));
         await consulting.register(consultingClientRoutes, { db });
+        await consulting.register(consultingContractRoutes, { db });
       });
     },
     { prefix: '/api' },

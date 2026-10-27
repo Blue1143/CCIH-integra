@@ -149,6 +149,14 @@ export class ApiDataSource implements CcihDataSource {
       endAssignment: (a, input) => http.send('POST', `/consulting/assignments/${id(a)}/end`, input),
       addEvent: (c, input) => http.send('POST', `/consulting/clients/${id(c)}/events`, input),
       team: () => http.get('/consulting/team'),
+      contracts: (q) => http.get('/consulting/contracts', q),
+      contract: (k) => http.get(`/consulting/contracts/${id(k)}`),
+      saveProposal: (c, k, input) => (k ? http.send('PUT', `/consulting/contracts/${id(k)}`, input) : http.send('POST', `/consulting/clients/${id(c!)}/contracts`, input)),
+      setContractStatus: (k, input) => http.send('POST', `/consulting/contracts/${id(k)}/status`, input),
+      addAmendment: (k, input) => http.send('POST', `/consulting/contracts/${id(k)}/amendments`, input),
+      addDelivery: (s, input) => http.send('POST', `/consulting/contract-services/${id(s)}/deliveries`, input),
+      voidDelivery: (d, reason) => http.send('POST', `/consulting/contract-deliveries/${id(d)}/void`, { reason }),
+      saveFinancial: (k, input) => http.send('PUT', `/consulting/contracts/${id(k)}/financial`, input),
     };
     this.inbox = {
       notifications: (q) => http.get(`/me/notifications?situacao=${q.situacao}`),

@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import {
-  ALERT_KIND_BLOCKING, ALERT_KIND_CATEGORY, IRAS_TYPES, addDays, bowieDickApplies, buildAlertCandidates, dateInZone, rulesFromParameters, surveillanceEnd, todayIn, zonedInstant,
-  type AlertCandidate, type AlertInput, type AlertKind,
+  ALERT_KIND_BLOCKING, ALERT_KIND_CATEGORY, IRAS_TYPES, addDays, bowieDickApplies, buildAlertCandidates, buildContractAlertCandidates, dateInZone, rulesFromParameters, surveillanceEnd, todayIn, zonedInstant,
+  type AlertCandidate, type AlertInput, type AlertKind, type ServicePeriod,
 } from '@ccih/domain';
 import type { DB } from '../db/types';
 import { publish } from '../realtime/outbox';
@@ -18,11 +18,12 @@ export const REFRESH_INTERVAL_MS = 60_000;
 
 export async function collectCandidates(db: Kysely<DB>, institutionId: string, now: Date): Promise<{ candidates: AlertCandidate[]; suppressHours: number | undefined }> {
   const [inst, params] = await Promise.all([
-    db.selectFrom('institution').select('timezone').where('id', '=', institutionId).executeTakeFirstOrThrow(),
+    db.selectFrom('institution').select(['timezone', 'organization_type']).where('id', '=', institutionId).executeTakeFirstOrThrow(),
     db.selectFrom('rule_parameter').select(['key', 'value', 'reference_id']).where('institution_id', '=', institutionId).execute(),
   ]);
   const tz = inst.timezone;
   const today = todayIn(tz, now);
+  if (inst.organization_type === 'consultoria') return { candidates: await collectConsulting(db, institutionId, today), suppressHours: undefined };
   const rules = rulesFromParameters(params.map((p) => ({ key: p.key, value: p.value, referenceId: p.reference_id })));
   const label = (p: { initials: string; record_number: string }) => `${p.initials} · ${p.record_number}`;
 
@@ -91,6 +92,30 @@ export async function collectCandidates(db: Kysely<DB>, institutionId: string, n
     pendingFollowups,
   });
   return { candidates, suppressHours: rules.alerts.suppressHours?.value };
+}
+
+/** Consulting model: contract terms and deliveries below the planned (signed, open contracts). */
+async function collectConsulting(db: Kysely<DB>, institutionId: string, today: string): Promise<AlertCandidate[]> {
+  const contracts = await db.selectFrom('contract as k').innerJoin('client as c', 'c.id', 'k.client_id')
+    .select(['k.id', 'k.code', 'k.client_id', 'k.status', 'k.ends_on', 'k.closed_on', 'k.auto_renew', 'k.renewal_notice_days', 'c.legal_name', 'c.trade_name'])
+    .where('k.institution_id', '=', institutionId).where('k.status', 'in', ['vigente', 'suspenso']).execute();
+  if (!contracts.length) return [];
+  const lines = await db.selectFrom('contract_service').select(['id', 'contract_id', 'description', 'unit', 'quantity', 'period', 'starts_on', 'ends_on'])
+    .where('contract_id', 'in', contracts.map((c) => c.id)).where('starts_on', 'is not', null).execute();
+  const deliveries = lines.length
+    ? await db.selectFrom('contract_delivery').select(['service_id', 'occurred_on', 'quantity']).where('service_id', 'in', lines.map((l) => l.id)).where('voided_at', 'is', null).execute()
+    : [];
+  const endOf = new Map(contracts.map((c) => [c.id, c.ends_on]));
+  return buildContractAlertCandidates({
+    today,
+    contracts: contracts.map((c) => ({ id: c.id, code: c.code, clientId: c.client_id, clientName: c.trade_name ?? c.legal_name, status: c.status, endsOn: c.ends_on, autoRenew: c.auto_renew, renewalNoticeDays: c.renewal_notice_days })),
+    lines: lines.map((l) => {
+      const contractEnd = endOf.get(l.contract_id) ?? null;
+      const endsOn = [l.ends_on, contractEnd].filter((d): d is string => !!d).sort()[0] ?? null;
+      return { id: l.id, contractId: l.contract_id, description: l.description, unit: l.unit, quantity: Number(l.quantity), period: l.period as ServicePeriod, startsOn: l.starts_on!, endsOn };
+    }),
+    deliveries: deliveries.map((d) => ({ serviceId: d.service_id, occurredOn: d.occurred_on, quantity: Number(d.quantity) })),
+  });
 }
 
 /** CME conditions: recalls, released loads that now fail, failed Bowie-Dick, late IB readings, qualification. */
@@ -241,7 +266,7 @@ async function generate(db: Kysely<DB>, institutionId: string, now: Date): Promi
         const row = await trx.insertInto('alert').values({
           institution_id: institutionId, kind, dedup_key: c.dedupKey, priority: c.priority, status: 'aberto', title: c.title, detail: c.detail, entity: c.entity, entity_id: c.entityId,
           sector_id: c.sectorId, link: c.link, last_seen_at: now, category: ALERT_KIND_CATEGORY[kind], blocking: ALERT_KIND_BLOCKING[kind], step: c.step ?? null, due_on: c.dueOn ?? null,
-          unit_id: c.sectorId ? (sectorUnits.get(c.sectorId) ?? null) : null,
+          unit_id: c.sectorId ? (sectorUnits.get(c.sectorId) ?? null) : null, client_id: c.clientId ?? null,
         }).returning('id').executeTakeFirstOrThrow();
         await trx.insertInto('alert_action').values({ alert_id: row.id, action: 'criado', user_id: null, user_name: 'Sistema', note: null, at: now }).execute();
         created++;

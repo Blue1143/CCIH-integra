@@ -29,10 +29,10 @@ export const ASSIGNMENT_ROLE_LABEL: Record<AssignmentRole, string> = { responsav
 export type Specialty = 'ccih' | 'cme' | 'qualidade' | 'seguranca_paciente' | 'gestao';
 export const SPECIALTY_LABEL: Record<Specialty, string> = { ccih: 'CCIH / IRAS', cme: 'CME', qualidade: 'Qualidade', seguranca_paciente: 'Segurança do paciente', gestao: 'Gestão' };
 
-export type ClientEventKind = 'cadastro' | 'alteracao' | 'atribuicao' | 'substituicao' | 'encerramento_atribuicao' | 'atendimento' | 'observacao';
+export type ClientEventKind = 'cadastro' | 'alteracao' | 'atribuicao' | 'substituicao' | 'encerramento_atribuicao' | 'atendimento' | 'observacao' | 'contrato';
 export const CLIENT_EVENT_LABEL: Record<ClientEventKind, string> = {
   cadastro: 'Cadastro', alteracao: 'Alteração do cadastro', atribuicao: 'Consultor atribuído', substituicao: 'Consultor substituído', encerramento_atribuicao: 'Atribuição encerrada',
-  atendimento: 'Atendimento', observacao: 'Observação',
+  atendimento: 'Atendimento', observacao: 'Observação', contrato: 'Contrato',
 };
 /** Events a person registers by hand (the others are written by the system when something changes). */
 export const MANUAL_CLIENT_EVENTS: ClientEventKind[] = ['atendimento', 'observacao'];

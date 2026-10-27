@@ -450,7 +450,7 @@ export interface AlertTable {
   title: string; detail: string; entity: string; entity_id: string | null; sector_id: string | null; link: string | null; created_at: CreatedAt; last_seen_at: Timestamp;
   assigned_to: string | null; assigned_name: string | null; assigned_at: NullableTimestamp; closed_at: NullableTimestamp; closed_by_name: string | null; resolution: string | null; row_version: RowVersion;
   category: 'erro_operacional' | 'violacao_sequencia' | 'pendencia_tempo' | 'falha_integracao' | 'informacao_obrigatoria' | 'nao_conformidade' | 'seguranca';
-  blocking: Generated<boolean>; step: string | null; due_on: string | null; unit_id: string | null;
+  blocking: Generated<boolean>; step: string | null; due_on: string | null; unit_id: string | null; client_id: ColumnType<string | null, string | null | undefined, string | null>;
   acknowledged_at: NullableTimestamp; acknowledged_by: string | null; acknowledged_name: string | null;
   resolved_at: NullableTimestamp; resolved_by: string | null; resolved_name: string | null; resolved_note: string | null;
   closed_reason: 'manual' | 'automatico' | 'excecao' | null;
@@ -608,7 +608,34 @@ export interface ClientAssignmentTable {
 }
 export interface ClientEventTable {
   id: Generated<string>; institution_id: string; client_id: string; kind: string; summary: string; detail: string | null; occurred_on: string;
-  actor_id: string | null; actor_name: string; created_at: CreatedAt;
+  actor_id: string | null; actor_name: string; created_at: CreatedAt; contract_id: ColumnType<string | null, string | null | undefined, never>;
+}
+export type ContractTable = Versioned & {
+  id: Generated<string>; institution_id: string; client_id: string; code: string; title: string; status: 'proposta' | 'vigente' | 'suspenso' | 'encerrado' | 'recusada';
+  starts_on: string | null; ends_on: string | null; auto_renew: Generated<boolean>; renewal_notice_days: Generated<number>; responsible_id: string | null; scope_notes: string | null;
+  signed_on: string | null; closed_on: string | null; close_reason: string | null; created_by: string | null; created_by_name: string; data_origin: Origin;
+};
+export interface ContractAmendmentTable {
+  id: Generated<string>; institution_id: string; contract_id: string; number: number; kinds: string[]; description: string; signed_on: string; effective_on: string;
+  changes: string[]; snapshot: Json; created_by: string | null; created_by_name: string; created_at: CreatedAt;
+}
+export interface ContractServiceTable {
+  id: Generated<string>; institution_id: string; contract_id: string; area: string; kind: string; description: string; establishment_id: string | null;
+  unit: 'visitas' | 'horas' | 'entregas';
+  /** numeric: pg returns a string. */
+  quantity: ColumnType<string, number | string, number | string>;
+  period: string; starts_on: string | null; ends_on: string | null; replaces_id: string | null; amendment_id: string | null; position: Generated<number>; created_at: CreatedAt;
+}
+export interface ContractDeliveryTable {
+  id: Generated<string>; institution_id: string; service_id: string; occurred_on: string;
+  quantity: ColumnType<string, number | string, number | string>;
+  description: string; created_by: string | null; created_by_name: string; created_at: CreatedAt; voided_at: NullableTimestamp; voided_by_name: string | null; void_reason: string | null;
+}
+export interface ContractFinancialTable {
+  contract_id: string; institution_id: string; basis: 'mensal' | 'total' | 'por_entrega';
+  /** bigint: pg returns a string. */
+  amount_cents: ColumnType<string | null, number | null, number | null>;
+  billing_day: number | null; payment_terms: string | null; adjustment_rule: string | null; notes: string | null; updated_at: Generated<Date>; updated_by_name: string; row_version: RowVersion;
 }
 
 export interface InstrumentAssetTable {
@@ -723,4 +750,9 @@ export interface DB {
   client_unit: ClientUnitTable;
   client_assignment: ClientAssignmentTable;
   client_event: ClientEventTable;
+  contract: ContractTable;
+  contract_amendment: ContractAmendmentTable;
+  contract_service: ContractServiceTable;
+  contract_delivery: ContractDeliveryTable;
+  contract_financial: ContractFinancialTable;
 }
