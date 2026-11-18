@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Rust (Mac: Intel e Apple Silicon)
+      - name: 'Rust para Mac (Intel e Apple Silicon)'
         if: runner.os == 'macOS'
         run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
       - run: npm ci
@@ -69,7 +69,7 @@ jobs:
       - name: Projeto Android
         working-directory: apps/native
         run: npm run mobile:add && npx cap sync android && node scripts/prepare-native.mjs
-      - name: APK (assinado com a chave de depuração: só para testes internos)
+      - name: 'APK assinado com a chave de depuração (só para testes internos)'
         working-directory: apps/native/android
         run: ./gradlew --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
