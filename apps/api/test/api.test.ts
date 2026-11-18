@@ -19,7 +19,12 @@ describe('health and anonymous access', () => {
   });
 
   it('answers readiness only with the database at the version of the code', async () => {
-    expect((await ctx.app.inject('/api/ready')).json()).toEqual({ status: 'pronto' });
+    const ready = await ctx.app.inject('/api/ready');
+    expect(ready.json()).toEqual({ status: 'pronto' });
+    // Readable by the installed apps' connection page; no credentials are ever shared across origins.
+    expect(ready.headers['access-control-allow-origin']).toBe('*');
+    expect(ready.headers['access-control-allow-credentials']).toBeUndefined();
+    expect((await ctx.app.inject('/api/auth/me')).headers['access-control-allow-origin']).toBeUndefined();
     // A pending migration (simulated: the last one unrecorded) makes the instance not ready.
     const last = (await sql<{ name: string; timestamp: string }>`SELECT name, timestamp FROM kysely_migration ORDER BY name DESC LIMIT 1`.execute(ctx.owner)).rows[0]!;
     await sql`DELETE FROM kysely_migration WHERE name = ${last.name}`.execute(ctx.owner);

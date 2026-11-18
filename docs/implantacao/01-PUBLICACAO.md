@@ -1,6 +1,6 @@
 # Publicação do CCIH Integra (site público para testes reais)
 
-Este guia coloca o sistema completo (banco, API e site com HTTPS) em **um servidor** com Docker. Serve para a fase de testes reais com organizações de verdade (consultorias e hospitais), e é a base da produção.
+Este guia coloca o sistema completo (banco, API e site com HTTPS) em **um servidor** com Docker. Para usar **aplicativos instalados** com o servidor num computador do escritório, sem site público, veja também [02-APLICATIVOS-E-SERVIDOR-NO-ESCRITORIO.md](02-APLICATIVOS-E-SERVIDOR-NO-ESCRITORIO.md). Serve para a fase de testes reais com organizações de verdade (consultorias e hospitais), e é a base da produção.
 
 O repositório não guarda nenhum segredo: senhas e chaves são geradas no próprio servidor e ficam só no arquivo `deploy/.env`, que o git ignora.
 

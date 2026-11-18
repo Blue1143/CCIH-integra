@@ -141,6 +141,7 @@ VITE_DATA_SOURCE=api npm run build
 - [docs/auditoria/](docs/auditoria/) — auditorias técnicas (Fase 1, reauditoria 1.1, Fases 2 a 5)
 - [docs/ROADMAP.md](docs/ROADMAP.md) — fases, dependências e riscos
 - [docs/implantacao/01-PUBLICACAO.md](docs/implantacao/01-PUBLICACAO.md) — publicação para testes reais e produção
+- [docs/implantacao/02-APLICATIVOS-E-SERVIDOR-NO-ESCRITORIO.md](docs/implantacao/02-APLICATIVOS-E-SERVIDOR-NO-ESCRITORIO.md) — aplicativos para Windows, Mac, Android e iPhone com o servidor num computador do escritório (VPN)
 - `ccih-integra/` — design system publicado (guia de marca, conteúdo técnico, tokens)
 
 ## Aviso clínico

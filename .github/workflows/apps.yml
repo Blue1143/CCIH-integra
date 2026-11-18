@@ -1,0 +1,96 @@
+name: Aplicativos
+# Installers of the apps (Windows, Mac, Android, iPhone simulator). Run by hand with the address of
+# the organization's server; on pushes that change the apps, they are built with an example address
+# only to check that the build works.
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: Endereço HTTPS do servidor da organização (ex.: https://ccih.escritorio.ts.net)
+        required: true
+  push:
+    paths: ['apps/native/**', '.github/workflows/apps.yml']
+permissions:
+  contents: read
+env:
+  CCIH_SERVER_URL: ${{ inputs.server_url || 'https://ccih.exemplo.com.br' }}
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: ''
+            bundles: apps/native/src-tauri/target/release/bundle/*/*
+          - os: macos-latest
+            args: --target universal-apple-darwin
+            bundles: apps/native/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Rust (Mac: Intel e Apple Silicon)
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - run: npm ci
+      - run: npm test -w @ccih/native
+      - name: Testes do aplicativo (navegação restrita ao servidor)
+        working-directory: apps/native/src-tauri
+        shell: bash
+        run: npm run start-page -w @ccih/native && cargo test
+      - name: Instalador
+        working-directory: apps/native
+        shell: bash
+        run: npm run desktop:build -- ${{ matrix.args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ccih-integra-${{ runner.os }}
+          path: ${{ matrix.bundles }}
+          retention-days: 14
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Projeto Android
+        working-directory: apps/native
+        run: npm run mobile:add && npx cap sync android && node scripts/prepare-native.mjs
+      - name: APK (assinado com a chave de depuração: só para testes internos)
+        working-directory: apps/native/android
+        run: ./gradlew --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ccih-integra-android
+          path: apps/native/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Projeto iPhone
+        working-directory: apps/native
+        run: npm run mobile:add && npx cap sync ios && node scripts/prepare-native.mjs
+      # Without the organization's Apple Developer account the app is built for the simulator only;
+      # installing on iPhones needs signing (see apps/native/README.md).
+      - name: Compilação para o simulador (sem assinatura)
+        run: xcodebuild -project apps/native/ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

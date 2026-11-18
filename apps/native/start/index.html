@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src __CCIH_SERVER__; base-uri 'none'; form-action 'none'" />
+    <meta name="referrer" content="no-referrer" />
+    <title>CCIH Integra</title>
+    <link rel="stylesheet" href="start.css" />
+  </head>
+  <body>
+    <main>
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="#0b6b61" /><path d="M16 8v16M8 16h16" stroke="#fff" stroke-width="4" stroke-linecap="round" /></svg>
+      <h1>CCIH Integra</h1>
+      <p id="status" role="status" aria-live="polite">Conectando ao servidor da organização…</p>
+      <p class="server">__CCIH_SERVER__</p>
+      <button id="retry" type="button" hidden>Tentar novamente</button>
+    </main>
+    <script src="start.js"></script>
+  </body>
+</html>

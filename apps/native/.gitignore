@@ -1,0 +1,6 @@
+www/
+src-tauri/target/
+src-tauri/gen/
+android/
+ios/
+capacitor.config.json

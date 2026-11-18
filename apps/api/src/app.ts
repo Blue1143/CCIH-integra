@@ -105,13 +105,16 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   });
   app.setNotFoundHandler((_req, reply) => reply.status(404).send({ error: 'nao_encontrado', message: 'Recurso não encontrado.' }));
 
-  app.get('/api/health', async () => {
+  // The installed apps check these from their bundled connection page (another origin): readable by
+  // anyone, never with credentials. No other route is shared across origins.
+  const probe = { onSend: async (_req: unknown, reply: { header: (k: string, v: string) => unknown }) => { reply.header('access-control-allow-origin', '*'); } };
+  app.get('/api/health', probe, async () => {
     await sql`SELECT 1`.execute(db);
     return { status: 'ok' };
   });
 
   /** Readiness (deploys, load balancers): database reachable and every migration of this version applied. */
-  app.get('/api/ready', async (req, reply) => {
+  app.get('/api/ready', probe, async (req, reply) => {
     try {
       const r = await sql<{ v: string | null }>`SELECT app_schema_version() AS v`.execute(db);
       if (r.rows[0]?.v !== LATEST_MIGRATION) return reply.status(503).send({ status: 'migracao_pendente' });

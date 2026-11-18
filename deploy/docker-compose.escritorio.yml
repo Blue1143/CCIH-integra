@@ -1,0 +1,7 @@
+# Servidor num computador do escritório, acessado pela VPN (Tailscale) com HTTPS.
+# O Tailscale recebe as conexões HTTPS e repassa ao proxy, que fica acessível só neste computador.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.escritorio.yml up -d --build
+services:
+  web:
+    ports: !override
+      - "127.0.0.1:8080:80"

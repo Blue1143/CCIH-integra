@@ -11,6 +11,7 @@ COPY packages/demo-data/package.json packages/demo-data/
 COPY packages/ui/package.json packages/ui/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY apps/native/package.json apps/native/
 RUN npm ci --no-audit --no-fund
 
 # ---------- Build (API empacotada e web estática) ----------
@@ -31,6 +32,7 @@ COPY packages/demo-data/package.json packages/demo-data/
 COPY packages/ui/package.json packages/ui/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY apps/native/package.json apps/native/
 # Só as dependências de execução da API (os pacotes do monorepo já estão dentro do bundle).
 RUN npm ci --omit=dev --no-audit --no-fund -w @ccih/api && npm cache clean --force
 COPY --from=build /app/apps/api/dist apps/api/dist
