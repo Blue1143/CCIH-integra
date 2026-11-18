@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       server_url:
-        description: Endereço HTTPS do servidor da organização (ex.: https://ccih.escritorio.ts.net)
+        description: 'Endereço HTTPS do servidor da organização, por exemplo https://ccih.escritorio.ts.net'
         required: true
   push:
     paths: ['apps/native/**', '.github/workflows/apps.yml']
