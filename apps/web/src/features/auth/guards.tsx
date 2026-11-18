@@ -4,6 +4,7 @@ import type { Permission } from '@ccih/domain';
 import { Card, EmptyState, ErrorState, LoadingState } from '@ccih/ui';
 import { ALL_NAV_ITEMS, navItemVisible, type NavItem } from '../../app/navigation';
 import { useSession } from './session';
+import { useDataSource } from '../../data/source';
 
 export function RequireSession({ children }: { children: ReactNode }) {
   const session = useSession();
@@ -51,4 +52,12 @@ export function HomeRoute({ dashboard, consulting }: { dashboard: ReactNode; con
   if (session.can('dashboard:view')) return <>{dashboard}</>;
   const first = ALL_NAV_ITEMS.find((i) => i.path !== '/' && navItemVisible(i, session.model, session.can));
   return first ? <Navigate to={first.path} replace /> : <Guard anyOf={['dashboard:view']}>{null}</Guard>;
+}
+
+/** The fictitious consulting demonstration: consulting organizations, or the app running on demo data. */
+export function DemoAreaGuard({ children }: { children: ReactNode }) {
+  const session = useSession();
+  const source = useDataSource();
+  if (session.model === 'consultoria' || source.origin === 'demo') return <>{children}</>;
+  return <Guard anyOf={[]}>{null}</Guard>;
 }

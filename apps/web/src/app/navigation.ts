@@ -8,6 +8,11 @@ export interface NavItem {
   permissions: Permission[];
   /** Business models that have this module (default: hospital only). */
   models?: OrganizationType[];
+  /**
+   * Self-contained demonstration area with fictitious data: offered to consulting organizations
+   * and to anyone running the app on the demo data source.
+   */
+  demoArea?: boolean;
   /** Roadmap phase (number) or delivery stage (text, e.g. "M3") of the module; null = available now. */
   phase: number | string | null;
   summary: string;
@@ -87,12 +92,17 @@ export const NAVIGATION: NavGroup[] = [
       { path: '/admin', permissions: ['config:view', 'users:view', 'users:manage', 'users:manage:ccih', 'users:manage:cme', 'audit:view', 'audit:view:module'], models: ['hospitalar', 'consultoria'], label: 'Administração', phase: null, summary: 'Metas, parâmetros, referências, política da CME, usuários, perfis e log de auditoria.' },
     ],
   },
+  {
+    label: 'Demonstração',
+    items: [{ path: '/demo/consultoria', permissions: [], models: ['consultoria'], demoArea: true, label: 'Consultoria — Demonstração', phase: null,
+      summary: 'Painel demonstrativo de consultoria em prevenção e controle de infecções, com três instituições fictícias (dados fictícios, sem uso assistencial).' }],
+  },
 ];
 
 export const ALL_NAV_ITEMS = NAVIGATION.flatMap((g) => g.items);
 
 /** Whether a menu item is offered: the organization's model has it and the profile can use it. */
-export const navItemVisible = (item: NavItem, model: OrganizationType, can: (...p: Permission[]) => boolean) =>
-  (item.models ?? ['hospitalar']).includes(model) && (item.permissions.length === 0 || can(...item.permissions));
+export const navItemVisible = (item: NavItem, model: OrganizationType, can: (...p: Permission[]) => boolean, demoSource = false) =>
+  ((item.models ?? ['hospitalar']).includes(model) || (!!item.demoArea && demoSource)) && (item.permissions.length === 0 || can(...item.permissions));
 
 export const phaseLabel = (phase: number | string) => (typeof phase === 'number' ? `Fase ${phase}` : `Etapa ${phase}`);

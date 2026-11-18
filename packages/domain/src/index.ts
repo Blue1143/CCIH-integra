@@ -42,3 +42,4 @@ export * from './cme/flow';
 export * from './cme/hid';
 export * from './cme/barcode';
 export * from './cme/labels';
+export * from './consulting/demonstration';

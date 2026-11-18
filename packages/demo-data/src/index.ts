@@ -7,3 +7,4 @@ export { hashSeed, rng, poisson, binomial } from './random';
 export const DEMO_SOURCE = 'Gerador sintético de demonstração v1 (sem pacientes reais)';
 export * from './operations';
 export * from './cme';
+export * from './consulting-demo';

@@ -30,7 +30,7 @@ export function AppShell() {
   const unread = useUnreadNotifications().data?.unread ?? 0;
   const forced = !!session.info?.mustChangePassword;
   const realtime = useRealtimeSync(session.status === 'authenticated' && !forced);
-  const groups = (forced ? [] : NAVIGATION).map((g) => ({ ...g, items: g.items.filter((i) => navItemVisible(i, session.model, session.can)) })).filter((g) => g.items.length);
+  const groups = (forced ? [] : NAVIGATION).map((g) => ({ ...g, items: g.items.filter((i) => navItemVisible(i, session.model, session.can, demo)) })).filter((g) => g.items.length);
 
   return (
     <div className="app ig-root">

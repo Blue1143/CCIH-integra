@@ -7,7 +7,7 @@ import { ALL_NAV_ITEMS } from './navigation';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { NotFoundPage, PlannedModulePage } from '../features/modules/PlannedModulePage';
 import { LoginPage } from '../features/auth/LoginPage';
-import { Guard, HomeRoute, NavGuard, RequireSession } from '../features/auth/guards';
+import { DemoAreaGuard, Guard, HomeRoute, NavGuard, RequireSession } from '../features/auth/guards';
 
 const named = <K extends string>(load: () => Promise<Record<K, () => ReactElement | null>>, name: K) => lazy(() => load().then((m) => ({ default: m[name] })));
 const ConsultingHomePage = named(() => import('../features/consulting/ConsultingHomePage'), 'ConsultingHomePage');
@@ -55,6 +55,13 @@ const FlowSetupPage = named(() => import('../features/cme/SetupPages'), 'FlowSet
 const AssetsPage = named(() => import('../features/cme/SetupPages'), 'AssetsPage');
 const LabelsPage = named(() => import('../features/cme/LabelsPage'), 'LabelsPage');
 const TracePage = named(() => import('../features/cme/TracePage'), 'TracePage');
+const DemoConsultingLayout = named(() => import('../features/demo-consultoria/DemoLayout'), 'DemoConsultingLayout');
+const DemoOverviewPage = named(() => import('../features/demo-consultoria/OverviewPage'), 'DemoOverviewPage');
+const DemoInstitutionPage = named(() => import('../features/demo-consultoria/OverviewPage'), 'DemoInstitutionPage');
+const DemoIndicatorsPage = named(() => import('../features/demo-consultoria/IndicatorsPage'), 'DemoIndicatorsPage');
+const DemoDiagnosisPage = named(() => import('../features/demo-consultoria/DiagnosisPage'), 'DemoDiagnosisPage');
+const DemoActionsPage = named(() => import('../features/demo-consultoria/ActionsPage'), 'DemoActionsPage');
+const DemoReportsPage = named(() => import('../features/demo-consultoria/ReportsPage'), 'DemoReportsPage');
 const AccountPage = named(() => import('../features/auth/AccountPage'), 'AccountPage');
 const NotificationsPage = named(() => import('../features/inbox/NotificationsPage'), 'NotificationsPage');
 
@@ -103,6 +110,18 @@ export const routes: RouteObject[] = [
       { path: 'consultoria/contratos', element: guarded(['consultoria:contracts:view'], <ContractsPage />) },
       { path: 'consultoria/contratos/:id', element: guarded(['consultoria:contracts:view'], <ContractDetailPage />) },
       { path: 'consultoria/equipe', element: guarded(['consultoria:portfolio:assign', 'consultoria:portfolio:all'], <TeamPage />) },
+      {
+        path: 'demo/consultoria',
+        element: <DemoAreaGuard>{page(<DemoConsultingLayout />)}</DemoAreaGuard>,
+        children: [
+          { index: true, element: page(<DemoOverviewPage />) },
+          { path: 'instituicoes/:id', element: page(<DemoInstitutionPage />) },
+          { path: 'indicadores', element: page(<DemoIndicatorsPage />) },
+          { path: 'diagnostico', element: page(<DemoDiagnosisPage />) },
+          { path: 'planos', element: page(<DemoActionsPage />) },
+          { path: 'relatorios', element: page(<DemoReportsPage />) },
+        ],
+      },
       { path: 'conta', element: page(<AccountPage />) },
       { path: 'notificacoes', element: page(<NotificationsPage />) },
       {
