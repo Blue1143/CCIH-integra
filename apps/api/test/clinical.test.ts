@@ -229,9 +229,11 @@ describe('surgery and microbiology', () => {
 
   it('versions culture results: corrections need a justification and never overwrite', async () => {
     const adm = await ctx.db.selectFrom('admission').innerJoin('admission_movement as m', 'm.admission_id', 'admission.id').select(['admission.id', 'm.sector_id'])
-      .where('admission.discharged_at', 'is', null).where('m.end_at', 'is', null).where('m.sector_id', '=', await sectorId('uti-adulto')).executeTakeFirstOrThrow();
+      .where('admission.discharged_at', 'is', null).where('m.end_at', 'is', null).where('m.sector_id', '=', await sectorId('uti-adulto'))
+      // Admitted (and in the unit) before the collection time used below: the synthetic census depends on the time of day.
+      .where('admission.admitted_at', '<', new Date(Date.now() - 48 * 3_600_000)).where('m.start_at', '<', new Date(Date.now() - 48 * 3_600_000)).executeTakeFirstOrThrow();
     const created = await api(infecto, 'POST', '/cultures', { admissionId: adm.id, sectorId: adm.sector_id, material: 'sangue', collectedAt: hoursAgo(30) });
-    expect(created.statusCode).toBe(201);
+    expect(created.statusCode, created.body).toBe(201);
     const id = created.json().id;
     expect((await api(enf, 'POST', '/cultures', { admissionId: adm.id, sectorId: adm.sector_id, material: 'sangue', collectedAt: hoursAgo(30) })).statusCode).toBe(403);
     const first = await api(infecto, 'POST', `/cultures/${id}/results`, { outcome: 'negativa', reportedAt: hoursAgo(2), breakpointVersion: null, notes: null, isolates: [], justification: null });

@@ -630,6 +630,23 @@ export interface ContractDeliveryTable {
   id: Generated<string>; institution_id: string; service_id: string; occurred_on: string;
   quantity: ColumnType<string, number | string, number | string>;
   description: string; created_by: string | null; created_by_name: string; created_at: CreatedAt; voided_at: NullableTimestamp; voided_by_name: string | null; void_reason: string | null;
+  activity_id: ColumnType<string | null, string | null | undefined, never>;
+}
+export type ConsultingActivityTable = Versioned & {
+  id: Generated<string>; institution_id: string; client_id: string; establishment_id: string | null; contract_service_id: string | null;
+  kind: string; mode: 'presencial' | 'remoto'; title: string; description: string | null; starts_at: Timestamp; ends_at: Timestamp; location: string | null; responsible_id: string;
+  status: ColumnType<'agendada' | 'realizada' | 'nao_realizada' | 'cancelada', 'agendada' | undefined, 'realizada' | 'nao_realizada' | 'cancelada'>;
+  outcome_summary: string | null; outcome_detail: string | null; actual_minutes: number | null; close_reason: string | null; recorded_by_name: string | null; recorded_at: NullableTimestamp;
+  created_by: string | null; created_by_name: string; data_origin: Origin;
+};
+export interface ConsultingActivityParticipantTable { activity_id: string; user_id: string; institution_id: string }
+export interface ConsultingActivityEventTable {
+  id: Generated<string>; institution_id: string; activity_id: string; kind: string; summary: string; detail: string | null; actor_id: string | null; actor_name: string; created_at: CreatedAt;
+}
+export interface ConsultingTaskTable {
+  id: Generated<string>; institution_id: string; client_id: string; activity_id: string | null; description: string; owner_id: string; due_on: string;
+  status: ColumnType<'aberta' | 'concluida' | 'cancelada', 'aberta' | undefined, 'concluida' | 'cancelada'>;
+  closed_note: string | null; closed_by_name: string | null; closed_at: NullableTimestamp; created_by: string | null; created_by_name: string; created_at: CreatedAt; row_version: RowVersion;
 }
 export interface ContractFinancialTable {
   contract_id: string; institution_id: string; basis: 'mensal' | 'total' | 'por_entrega';
@@ -755,4 +772,8 @@ export interface DB {
   contract_service: ContractServiceTable;
   contract_delivery: ContractDeliveryTable;
   contract_financial: ContractFinancialTable;
+  consulting_activity: ConsultingActivityTable;
+  consulting_activity_participant: ConsultingActivityParticipantTable;
+  consulting_activity_event: ConsultingActivityEventTable;
+  consulting_task: ConsultingTaskTable;
 }

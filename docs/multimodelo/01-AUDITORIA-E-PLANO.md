@@ -255,9 +255,10 @@ O plano da CME pendente (E1, H1, H2, I1, G2, I2) fica pausado até M14, exceto o
 | M2 | Concluída | Regressão hospitalar: todas as suítes anteriores verdes sem mudar expectativas (exceto a de ambiente: produção já exigia a chave de anexos), E2E hospitalares e por perfil verdes |
 | M3 | Concluída | Migração 0013 (perfis da consultoria, `client`, `client_contact`, `client_establishment`, `client_unit`, `client_assignment` com histórico, `client_event` somente inserção; vínculos compostos com a organização; tabelas exclusivas de consultoria); escopo por cliente na sessão; rotas `/api/consulting/*`; telas Clientes, ficha do cliente e Equipe e carteiras; consultoria de demonstração com equipe e 3 clientes sintéticos; testes de domínio, API (permissões, escopo, substituição com histórico, isolamento entre consultorias, varredura do consultor sobre cliente não atribuído, descida/subida da migração), interface e E2E. A varredura de isolamento passou a cobrir consultoria × consultoria e o critério "200 com id de outra organização" foi corrigido (antes nunca disparava); ele apontou `GET /supplies/:id/movements`, que devolvia lista vazia e agora responde 404 (sem vazamento de dados) |
 | M4 | Concluída | Migração 0014 (`contract`, `contract_service`, `contract_amendment` somente inserção, `contract_delivery` anulável e nunca apagada, `contract_financial` em tabela própria; `client_event` ganha o tipo "contrato" e o vínculo com o contrato; `alert.client_id`; permissões novas nos perfis das consultorias existentes); rotas `/api/consulting/contracts*`, `/contract-services/:id/deliveries`, `/contract-deliveries/:id/void`; alertas de vencimento, de contrato vencido e de entregas abaixo do previsto, filtrados pelo escopo de clientes; telas Contratos, ficha do contrato e contratos na ficha do cliente e no início; testes de domínio (períodos, previsto × realizado, alertas), API (fluxo completo, gatilhos do banco, financeiro restrito, alertas por escopo, varredura do consultor, descida/subida da migração), interface e E2E |
-| M5 em diante | Pendentes | — |
+| M5 | Concluída | Migração 0015 (`consulting_activity` com guarda de registro definitivo, `consulting_activity_participant`, `consulting_activity_event` somente inserção, `consulting_task` encerrada uma única vez; `contract_delivery.activity_id` único; tipo "atividade" no histórico do cliente; permissões de agenda nas consultorias existentes); rotas `/api/consulting/activities*`, `/clients/:id/activity-options`, `/tasks*`, `/agenda.ics`; alertas de atividade sem registro e pendência atrasada no escopo de clientes; telas Agenda, ficha da atividade, agenda na ficha do cliente e "Minha agenda" no início; testes de domínio (validação, conflitos, quantidade entregue, iCalendar, alertas), API (fluxo completo, conflito de horário, entrega no contrato, gatilhos do banco, alertas, exportação, varredura do consultor, descida/subida da migração), interface e E2E |
+| M6 em diante | Pendentes | — |
 
-### Perfis da consultoria (M3–M4)
+### Perfis da consultoria (M3–M5)
 
 Gerado de `packages/domain/src/permissions.ts`. Além destas, todos os perfis da consultoria têm as permissões compartilhadas indicadas (alertas; gestão de usuários e log só para o administrador; o gestor consulta usuários). O consultor vê **só os clientes atribuídos a ele**; quem tem `consultoria:portfolio:all` vê a carteira inteira. Observações internas nunca aparecem para consultores nem (no futuro) para o cliente.
 
@@ -278,6 +279,9 @@ Gerado de `packages/domain/src/permissions.ts`. Além destas, todos os perfis da
 | `consultoria:contracts:edit` | Cadastrar propostas, registrar assinatura, aditivos, suspensão e encerramento de contratos | ● | ● | — | ● | — |
 | `consultoria:contracts:deliveries` | Registrar e anular entregas realizadas dos serviços contratados | ● | ● | ● | ● | — |
 | `consultoria:contracts:financial` | Ver e editar valores e condições financeiras dos contratos | ● | — | — | — | ● |
+| `consultoria:agenda:view` | Ver a agenda (atividades e pendências) dos clientes visíveis | ● | ● | ● | ● | — |
+| `consultoria:agenda:edit` | Agendar, alterar, remarcar e cancelar atividades com os clientes | ● | ● | ● | ● | — |
+| `consultoria:agenda:record` | Registrar a realização ou não realização das atividades e as pendências | ● | ● | ● | — | — |
 
 **Regras da carteira:**
 - Um responsável ativo por cliente; atribuir um novo responsável encerra o anterior no mesmo dia, com o motivo ("Substituído por …"). Atribuições nunca são apagadas nem reescritas: só encerradas, uma vez (o banco impede o resto).
@@ -285,13 +289,22 @@ Gerado de `packages/domain/src/permissions.ts`. Além destas, todos os perfis da
 - O histórico do cliente (cadastro, alterações, atribuições, substituições, atendimentos, observações) é somente inserção.
 - CNPJ do cliente validado e único na carteira da consultoria (outra consultoria pode atender o mesmo estabelecimento, com cadastro próprio).
 
+**Regras da agenda (M5):**
+- Atividade (visita técnica, reunião, auditoria, inspeção, treinamento, entrega, diagnóstico) de um cliente, presencial ou remota, com início e término (até 12 h), estabelecimento ou local, responsável e participantes. Só participam pessoas da equipe com acesso à agenda **e** ao cliente (carteira completa ou atribuição ativa).
+- **Conflito de horário:** se o responsável ou um participante já tem outra atividade agendada que se sobrepõe, a gravação é recusada com a lista dos conflitos; quem agenda pode confirmar "agendar mesmo assim", e a sobreposição aceita fica no log de auditoria.
+- Enquanto agendada, a atividade é alterada; mudar o horário exige motivo (remarcação no histórico). O registro é definitivo (o banco impede alterar ou apagar): **realizada** (resumo e duração realizada, só depois do início), **não realizada** ou **cancelada** (com motivo). O consultor e o gestor registram; o assistente agenda e cancela.
+- Realizada e ligada a um serviço contratado, conta como **entrega** desse serviço no previsto × realizado (1 visita ou entrega; em horas, a duração realizada arredondada a 15 min), uma única vez por atividade e dentro da vigência do serviço. A entrega pode ser anulada no contrato, como as outras.
+- **Pendências:** cada atividade pode deixar pendências com responsável e prazo; são encerradas uma vez (concluída ou cancelada, com o que foi feito) pelo responsável ou por quem registra atividades.
+- **Alertas:** atividade agendada sem registro um dia depois do término (alta prioridade depois de 7 dias) e pendência atrasada; fecham sozinhos com o registro ou o encerramento, e só aparecem para quem vê o cliente.
+- **Calendário:** exportação iCalendar (.ics) da própria agenda (ou da equipe visível), para importar no calendário pessoal; a exportação fica no log de auditoria.
+
 **Regras dos contratos (M4):**
 - Proposta → assinatura (exige início da vigência e ao menos um serviço) → vigente ⇄ suspenso → encerrado; proposta pode ser recusada. Suspensão, retomada, recusa e encerramento exigem motivo; tudo vai para o histórico do contrato e do cliente. A assinatura torna ativo um cliente "prospecto".
 - Enquanto proposta, tudo é editável. Depois da assinatura, mudanças só por **aditivo** (numerado, somente inserção): novo término, renovação automática, inclusão, alteração ou encerramento de serviços. Alterar a quantidade ou o período de um serviço encerra a linha antiga na véspera do efeito e cria outra ligada a ela, preservando as entregas já feitas. O banco impede apagar ou reescrever serviços de contrato assinado.
 - **Previsto × realizado** (`planVsDone`, sem fórmula clínica): cada serviço tem quantidade por período (mês, bimestre, trimestre, semestre, ano ou contrato inteiro), contado a partir do início do serviço; realizado = entregas registradas com data dentro do período. A tela mostra o período atual e o acumulado dos períodos encerrados. Não há rateio de período parcial.
 - Entregas: data não futura e dentro da vigência do serviço; registradas por consultor, gestor ou assistente; uma entrega errada é **anulada com motivo** (o banco impede apagar ou alterar).
 - **Vencimento:** situação "Vencido" para contrato aberto após o término; alerta "perto do vencimento" dentro do aviso do contrato (padrão 60 dias; alta prioridade a 15 dias ou menos), alerta "vencido sem renovação ou encerramento" e alerta de "entregas abaixo do previsto" no último período encerrado. Os alertas fecham sozinhos quando o aditivo, o encerramento ou a entrega resolvem a condição, e só aparecem para quem vê o cliente.
-- **Financeiro:** valores e condições ficam em tabela própria e só são lidos e gravados com `consultoria:contracts:financial` (financeiro e administrador; não é concedido individualmente). Não há cobrança, boleto ou integração bancária simulada.
+- **Financeiro (contratos):** valores e condições ficam em tabela própria e só são lidos e gravados com `consultoria:contracts:financial` (financeiro e administrador; não é concedido individualmente). Não há cobrança, boleto ou integração bancária simulada.
 
 
 ### Como criar organizações (operador da plataforma)

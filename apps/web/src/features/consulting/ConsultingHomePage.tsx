@@ -4,6 +4,8 @@ import { ORGANIZATION_TYPE_LABEL } from '@ccih/domain';
 import { Card, DataTable, StatusBadge } from '@ccih/ui';
 import { contractColumns } from './ContractsPage';
 import { useConsulting } from './shared';
+import { ActivitySituationBadge, TasksTable, timeRange } from './agenda-shared';
+import { useTimeZone } from '../clinical/shared';
 import { NAVIGATION, phaseLabel } from '../../app/navigation';
 import { useSession } from '../auth/session';
 
@@ -32,6 +34,7 @@ export function ConsultingHomePage() {
           <li><Link to="/conta">Minha conta</Link> — senha e sessão.</li>
         </ul>
       </Card>
+      {session.can('consultoria:agenda:view') ? <MyAgenda /> : null}
       {session.can('consultoria:contracts:view') ? <ExpiringContracts /> : null}
       <Card title="Módulos da consultoria" subtitle="Entregues por etapas; cada um só aparece como disponível quando registra dados reais." headingLevel={2}>
         <div className="ig-table-scroll"><table className="ig-table">
@@ -62,6 +65,29 @@ function ExpiringContracts() {
       actions={<Link to="/consultoria/contratos?vencendo=1">Ver todos</Link>}>
       <DataTable caption="Contratos vencendo" dense rows={q.data?.rows ?? []} rowKey={(c) => c.id} columns={contractColumns(true).filter((c) => ['code', 'client', 'term', 'situation'].includes(c.key))}
         state={q.isPending ? 'loading' : q.isError ? 'error' : 'ready'} emptyMessage="Nenhum contrato perto do vencimento." />
+    </Card>
+  );
+}
+
+/** The next seven days of the person's own agenda and their open tasks. */
+function MyAgenda() {
+  const consulting = useConsulting();
+  const tz = useTimeZone();
+  const from = new Date();
+  const to = new Date(from.getTime() + 7 * 86_400_000);
+  const q = useQuery({ queryKey: ['consulting', 'activities', 'home'], queryFn: () => consulting!.activities({ mine: '1', from: from.toISOString(), to: to.toISOString(), pageSize: 20 }), enabled: !!consulting });
+  const tasks = useQuery({ queryKey: ['consulting', 'tasks', 'home'], queryFn: () => consulting!.tasks({ mine: '1', status: 'aberta', pageSize: 20 }), enabled: !!consulting });
+  if (!consulting) return null;
+  return (
+    <Card title="Minha agenda — próximos 7 dias" headingLevel={2} actions={<Link to="/consultoria/agenda?minha=1">Abrir a agenda</Link>}>
+      <DataTable caption="Minhas próximas atividades" dense rows={q.data?.rows ?? []} rowKey={(a) => a.id} state={q.isPending ? 'loading' : q.isError ? 'error' : 'ready'} emptyMessage="Nenhuma atividade nos próximos 7 dias."
+        columns={[
+          { key: 'when', label: 'Quando', render: (a) => timeRange(a.startsAt, a.endsAt, tz) },
+          { key: 'title', label: 'Atividade', render: (a) => <Link to={`/consultoria/agenda/${a.id}`}>{a.title}</Link> },
+          { key: 'client', label: 'Cliente', value: (a) => a.clientName },
+          { key: 'situation', label: 'Situação', render: (a) => <ActivitySituationBadge situation={a.situation} /> },
+        ]} />
+      {tasks.data?.rows.length ? <div style={{ marginTop: 12 }}><TasksTable tasks={tasks.data.rows} caption="Minhas pendências abertas" withClient withActivity /></div> : null}
     </Card>
   );
 }

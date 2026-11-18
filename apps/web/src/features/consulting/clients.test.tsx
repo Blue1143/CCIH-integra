@@ -40,6 +40,8 @@ function setup(role: RoleCode, over: Partial<Record<keyof ConsultingPort, unknow
     addEvent: vi.fn(async () => DETAIL),
     saveClient: vi.fn(async () => DETAIL),
     contracts: vi.fn(async () => ({ rows: [], total: 0, page: 1, pageSize: 100 })),
+    activities: vi.fn(async () => ({ rows: [], total: 0, page: 1, pageSize: 20 })),
+    tasks: vi.fn(async () => ({ rows: [], total: 0, page: 1, pageSize: 50 })),
     ...over,
   } as unknown as ConsultingPort & Record<string, ReturnType<typeof vi.fn>>;
   const source: CcihDataSource = { origin: 'real', auth, consulting, getInstitution: () => demo.getInstitution(), getFacts: (q) => demo.getFacts(q) };

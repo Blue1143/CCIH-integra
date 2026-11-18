@@ -66,6 +66,9 @@ export const PERMISSIONS = {
   'consultoria:contracts:edit': 'Cadastrar propostas, registrar assinatura, aditivos, suspensão e encerramento de contratos',
   'consultoria:contracts:deliveries': 'Registrar e anular entregas realizadas dos serviços contratados',
   'consultoria:contracts:financial': 'Ver e editar valores e condições financeiras dos contratos',
+  'consultoria:agenda:view': 'Ver a agenda (atividades e pendências) dos clientes visíveis',
+  'consultoria:agenda:edit': 'Agendar, alterar, remarcar e cancelar atividades com os clientes',
+  'consultoria:agenda:record': 'Registrar a realização ou não realização das atividades e as pendências',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -166,13 +169,17 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
   gestor_consultoria: [
     'consultoria:clients:view', 'consultoria:clients:edit', 'consultoria:clients:record', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'consultoria:portfolio:assign',
     'consultoria:contracts:view', 'consultoria:contracts:edit', 'consultoria:contracts:deliveries',
+    'consultoria:agenda:view', 'consultoria:agenda:edit', 'consultoria:agenda:record',
     'users:view', 'alerts:view', 'alerts:manage',
   ],
   // Sees the scope contracted for the assigned clients and registers what was delivered; never the financial terms.
-  consultor: ['consultoria:clients:view', 'consultoria:clients:record', 'consultoria:contracts:view', 'consultoria:contracts:deliveries', 'alerts:view', 'alerts:manage'],
+  consultor: [
+    'consultoria:clients:view', 'consultoria:clients:record', 'consultoria:contracts:view', 'consultoria:contracts:deliveries',
+    'consultoria:agenda:view', 'consultoria:agenda:edit', 'consultoria:agenda:record', 'alerts:view', 'alerts:manage',
+  ],
   assistente_consultoria: [
     'consultoria:clients:view', 'consultoria:clients:edit', 'consultoria:clients:record', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all',
-    'consultoria:contracts:view', 'consultoria:contracts:edit', 'consultoria:contracts:deliveries', 'alerts:view',
+    'consultoria:contracts:view', 'consultoria:contracts:edit', 'consultoria:contracts:deliveries', 'consultoria:agenda:view', 'consultoria:agenda:edit', 'alerts:view',
   ],
   financeiro_consultoria: ['consultoria:clients:view', 'consultoria:clients:internal_notes', 'consultoria:portfolio:all', 'consultoria:contracts:view', 'consultoria:contracts:financial', 'alerts:view'],
 };

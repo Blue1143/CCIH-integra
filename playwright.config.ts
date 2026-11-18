@@ -18,7 +18,8 @@ export default defineConfig({
   forbidOnly: CI,
   reporter: CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: 'http://localhost:5173', trace: 'retain-on-failure', locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // PLAYWRIGHT_CHROMIUM_PATH: an already installed Chromium (machines whose browser build differs from this Playwright version).
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], ...(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } } : {}) } }],
   webServer: [
     // The suite logs in many times from one address: raise only the login throttling of this test server.
     { command: 'npm run start -w @ccih/api', url: 'http://127.0.0.1:3001/api/health', reuseExistingServer: !CI, timeout: 60_000, env: { LOGIN_RATE_LIMIT_PER_MINUTE: '60' } },

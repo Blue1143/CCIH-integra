@@ -17,6 +17,7 @@ export * from './permissions';
 export * from './organization';
 export * from './consulting/clients';
 export * from './consulting/contracts';
+export * from './consulting/agenda';
 export * from './users';
 export * from './attachments';
 export * from './rule-registry';

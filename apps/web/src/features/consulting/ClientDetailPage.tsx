@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ASSIGNMENT_ROLE_LABEL, CLIENT_EVENT_LABEL, CLIENT_STATUS_LABEL, CONTACT_KIND_LABEL, ESTABLISHMENT_KIND_LABEL, SPECIALTY_LABEL, UNIT_KIND_LABEL,
+  ACTIVITY_KIND_LABEL, ASSIGNMENT_ROLE_LABEL, CLIENT_EVENT_LABEL, CLIENT_STATUS_LABEL, CONTACT_KIND_LABEL, ESTABLISHMENT_KIND_LABEL, SPECIALTY_LABEL, UNIT_KIND_LABEL,
   checkContact, checkEstablishment, checkUnit, formatCnpj, formatDate,
   type AssignmentDto, type AssignmentRole, type ClientDetailDto, type ClientEventKind, type ContactDto, type ContactKind, type EstablishmentDto, type EstablishmentKind,
   type Specialty, type UnitDto, type UnitKind,
@@ -14,6 +14,7 @@ import { DemoTag, PageHeader, Timeline, useTimeZone } from '../clinical/shared';
 import { ClientForm } from './ClientsPage';
 import { contractColumns } from './ContractsPage';
 import { ProposalForm } from './contracts-shared';
+import { ActivityForm, ActivitySituationBadge, TasksTable, timeRange } from './agenda-shared';
 import { AddressFields, CLIENT_STATUS_TONE, EMPTY_ADDRESS, RequireConsulting, addressDraft, addressInput, addressLine, blank, useConsulting, useConsultingMutation } from './shared';
 
 export function ClientDetailPage() {
@@ -21,7 +22,7 @@ export function ClientDetailPage() {
 }
 
 const EVENT_TONE: Record<ClientEventKind, 'ok' | 'info' | 'warn' | 'neutral'> = {
-  cadastro: 'info', alteracao: 'neutral', atribuicao: 'ok', substituicao: 'warn', encerramento_atribuicao: 'neutral', atendimento: 'ok', observacao: 'neutral', contrato: 'info',
+  cadastro: 'info', alteracao: 'neutral', atribuicao: 'ok', substituicao: 'warn', encerramento_atribuicao: 'neutral', atendimento: 'ok', observacao: 'neutral', contrato: 'info', atividade: 'ok',
 };
 
 function ClientDetail() {
@@ -53,6 +54,7 @@ function ClientDetail() {
       )}
       <Consultants client={c} />
       {session.can('consultoria:contracts:view') ? <ClientContracts client={c} /> : null}
+      {session.can('consultoria:agenda:view') ? <ClientAgenda client={c} /> : null}
       <Contacts client={c} canEdit={canEdit} />
       <Establishments client={c} canEdit={canEdit} />
       <History client={c} tz={tz} />
@@ -74,6 +76,33 @@ function ClientContracts({ client }: { client: ClientDetailDto }) {
       actions={canEdit && !creating ? <Button icon="plus" onClick={() => setCreating(true)}>Nova proposta</Button> : null}>
       {creating ? <ProposalForm clientId={client.id} contract={null} establishments={client.establishments.map((e) => ({ id: e.id, name: e.name }))} onDone={(saved) => { setCreating(false); if (saved) navigate(`/consultoria/contratos/${saved.id}`); }} /> : null}
       <DataTable caption="Contratos do cliente" dense rows={q.data?.rows ?? []} rowKey={(k) => k.id} columns={contractColumns(false)} state={q.isPending ? 'loading' : q.isError ? 'error' : 'ready'} emptyMessage="Nenhum contrato ou proposta." />
+    </Card>
+  );
+}
+
+/* ---------- Agenda ---------- */
+
+function ClientAgenda({ client }: { client: ClientDetailDto }) {
+  const consulting = useConsulting()!;
+  const session = useSession();
+  const tz = useTimeZone();
+  const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
+  const q = useQuery({ queryKey: ['consulting', 'activities', { clientId: client.id }], queryFn: () => consulting.activities({ clientId: client.id, from: new Date(Date.now() - 30 * 86_400_000).toISOString(), pageSize: 20 }) });
+  const tasks = useQuery({ queryKey: ['consulting', 'tasks', { clientId: client.id }], queryFn: () => consulting.tasks({ clientId: client.id, status: 'aberta', pageSize: 50 }) });
+  const canEdit = session.can('consultoria:agenda:edit') && session.writable && client.status !== 'encerrado';
+  return (
+    <Card title="Agenda e pendências" subtitle="Atividades dos últimos 30 dias e as próximas, e as pendências abertas deste cliente." headingLevel={2}
+      actions={canEdit && !creating ? <Button icon="plus" onClick={() => setCreating(true)}>Nova atividade</Button> : null}>
+      {creating ? <ActivityForm clientId={client.id} activity={null} onDone={(saved) => { setCreating(false); if (saved) navigate(`/consultoria/agenda/${saved.id}`); }} /> : null}
+      <DataTable caption="Atividades do cliente" dense rows={q.data?.rows ?? []} rowKey={(a) => a.id} state={q.isPending ? 'loading' : q.isError ? 'error' : 'ready'} emptyMessage="Nenhuma atividade no período."
+        columns={[
+          { key: 'when', label: 'Quando', value: (a) => a.startsAt, render: (a) => timeRange(a.startsAt, a.endsAt, tz) },
+          { key: 'title', label: 'Atividade', value: (a) => a.title, render: (a) => <span><Link to={`/consultoria/agenda/${a.id}`}>{a.title}</Link><br /><span className="ig-small ig-muted">{ACTIVITY_KIND_LABEL[a.kind]}</span></span> },
+          { key: 'who', label: 'Responsável', value: (a) => a.responsible.name },
+          { key: 'situation', label: 'Situação', render: (a) => <ActivitySituationBadge situation={a.situation} /> },
+        ]} />
+      {tasks.data?.rows.length ? <div style={{ marginTop: 12 }}><TasksTable tasks={tasks.data.rows} caption="Pendências abertas do cliente" withActivity /></div> : null}
     </Card>
   );
 }

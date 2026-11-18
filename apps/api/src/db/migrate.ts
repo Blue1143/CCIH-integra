@@ -14,6 +14,7 @@ import * as m0011 from './migrations/0011_attachment_security';
 import * as m0012 from './migrations/0012_organization_type';
 import * as m0013 from './migrations/0013_consulting_clients';
 import * as m0014 from './migrations/0014_consulting_contracts';
+import * as m0015 from './migrations/0015_consulting_agenda';
 
 /** Migrations are registered statically (works the same under tsx, tests and the bundled build). */
 const MIGRATIONS: Record<string, Migration> = {
@@ -31,6 +32,7 @@ const MIGRATIONS: Record<string, Migration> = {
   '0012_organization_type': m0012,
   '0013_consulting_clients': m0013,
   '0014_consulting_contracts': m0014,
+  '0015_consulting_agenda': m0015,
 };
 
 /** Last migration of this version of the code: the readiness check compares it with the database. */
@@ -41,7 +43,7 @@ export const APPEND_ONLY_TABLES = [
   'quality_audit_status', 'nonconformity_status', 'supply_movement', 'ssi_followup', 'bundle_audit_answer',
   'load_item', 'sterilization_test', 'load_release_decision', 'attachment', 'cme_scan_event', 'alert_action',
   'label_print', 'label_cancel', 'attachment_scan', 'attachment_copy', 'client_event',
-  'contract_amendment',
+  'contract_amendment', 'consulting_activity_event',
 ] as const;
 
 const provider: MigrationProvider = { getMigrations: async () => MIGRATIONS };

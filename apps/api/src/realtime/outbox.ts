@@ -37,6 +37,7 @@ const BY_ENTITY: Record<string, { topic: RealtimeTopic; permission: Permission }
   client_unit: T('consultoria', 'consultoria:clients:view'), client_assignment: T('consultoria', 'consultoria:clients:view'), client_event: T('consultoria', 'consultoria:clients:view'),
   contract: T('consultoria', 'consultoria:contracts:view'), contract_amendment: T('consultoria', 'consultoria:contracts:view'), contract_service: T('consultoria', 'consultoria:contracts:view'),
   contract_delivery: T('consultoria', 'consultoria:contracts:view'), contract_financial: T('consultoria', 'consultoria:contracts:financial'),
+  consulting_activity: T('consultoria', 'consultoria:agenda:view'), consulting_task: T('consultoria', 'consultoria:agenda:view'),
   rule_parameter: T('config', 'config:view'), indicator_target: T('config', 'config:view'), clinical_reference: T('config', 'config:view'), unit: T('config', 'config:view'),
   sector: T('config', 'config:view'), bed: T('config', 'config:view'), institution: T('config', 'config:view'),
 };

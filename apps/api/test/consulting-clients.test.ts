@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql, type Kysely } from 'kysely';
 import * as m0013 from '../src/db/migrations/0013_consulting_clients';
 import * as m0014 from '../src/db/migrations/0014_consulting_contracts';
+import * as m0015 from '../src/db/migrations/0015_consulting_agenda';
 import { createOrganization } from '../src/services/organization';
 import { TEST_PASSWORD, accessBody, login, setupTestApp, teardown, type Session, type TestContext } from './helpers';
 
@@ -187,10 +188,12 @@ describe('consulting portfolio', () => {
     // Clean the portfolio of this test database first (down drops the tables).
     const owner = ctx.owner as unknown as Kysely<unknown>;
     // 0014 (contracts) depends on the portfolio tables: undo it first and redo it after.
+    await m0015.down(owner);
     await m0014.down(owner);
     await m0013.down(owner);
     await m0013.up(owner);
     await m0014.up(owner);
+    await m0015.up(owner);
     const roles = (await ctx.db.selectFrom('role').select('code').where('institution_id', '=', consultId).execute()).map((r) => r.code).sort();
     expect(roles).toEqual(['admin', 'assistente_consultoria', 'consultor', 'financeiro_consultoria', 'gestor_consultoria']);
     const admin = await ctx.db.selectFrom('role').select('permissions').where('institution_id', '=', consultId).where('code', '=', 'admin').executeTakeFirstOrThrow();

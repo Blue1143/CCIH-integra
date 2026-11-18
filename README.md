@@ -110,7 +110,7 @@ Sem backend, `VITE_DATA_SOURCE=demo` abre a interface com dados sintéticos gera
 | `npm run check` | Tudo acima |
 | `npm run e2e` | Playwright (Chromium) contra API + banco + web reais: fluxo completo de IRAS, bloqueios por perfil, alerta assumido e encerrado, auditoria → não conformidade → 5W2H, troca obrigatória da senha temporária e CME (carga → ciclo → indicador → liberação → uso na cirurgia → rastreio até o paciente) |
 
-O E2E reaproveita os servidores de desenvolvimento se estiverem rodando (API :3001, web :5173); senão sobe a API compilada e o `vite preview` (gere antes o build com `VITE_DATA_SOURCE=api`). Ele precisa do banco com o seed sintético e lê as senhas de `E2E_PASSWORD` ou do arquivo local do seed — nenhuma senha fica no código.
+O E2E reaproveita os servidores de desenvolvimento se estiverem rodando (API :3001, web :5173); senão sobe a API compilada e o `vite preview` (gere antes o build com `VITE_DATA_SOURCE=api`). Ele precisa do banco com o seed sintético e lê as senhas de `E2E_PASSWORD` ou do arquivo local do seed — nenhuma senha fica no código. Numa máquina cujo Chromium instalado não corresponde à versão do Playwright do projeto, indique o executável em `PLAYWRIGHT_CHROMIUM_PATH`.
 
 Os testes da API recriam o banco `ccih_test` a cada execução (`TEST_DATABASE_URL`, `TEST_DATABASE_OWNER_URL`). A CI (`.github/workflows/ci.yml`) sobe um PostgreSQL 16 efêmero, acessível só dentro do job e sem senha versionada, e roda `npm audit`, lint, typecheck, testes e build; um segundo job gera uma senha aleatória mascarada, recria o banco de demonstração e roda o E2E.
 

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { login } from './support';
+import { localInput, login } from './support';
 
 test.describe('Consultoria — carteira de clientes', () => {
   test('o gestor cadastra o cliente e atribui o consultor; o consultor só vê os seus clientes e registra o atendimento', async ({ page }) => {
@@ -93,5 +93,53 @@ test.describe('Consultoria — contratos', () => {
     await page.getByLabel(/^Valor/).fill('4.500,00');
     await page.getByRole('button', { name: 'Salvar condições' }).click();
     await expect(page.getByText('R$ 4.500,00')).toBeVisible();
+  });
+});
+
+test.describe('Consultoria — agenda', () => {
+  test('o gestor agenda a visita do consultor; o consultor registra a realização, que vira entrega do contrato, e deixa uma pendência', async ({ page }) => {
+    const title = `Visita E2E ${Date.now()}`;
+    await login(page, 'gestor.consultoria');
+    await page.goto('/consultoria/agenda');
+    await page.getByRole('button', { name: 'Nova atividade' }).click();
+    const pick = page.getByRole('combobox', { name: /^Cliente/ });
+    await pick.selectOption((await pick.locator('option', { hasText: 'Hospital Exemplo Norte' }).getAttribute('value'))!);
+    await page.getByLabel(/^Assunto/).fill(title);
+    await page.getByLabel(/^Início/).fill(localInput(-3 * 3_600_000));
+    await page.getByLabel(/^Término/).fill(localInput(-1 * 3_600_000));
+    await page.getByLabel(/^Local ou link/).fill('Hospital Exemplo Norte — CCIH');
+    const responsible = page.getByRole('combobox', { name: /^Responsável/ });
+    await responsible.selectOption((await responsible.locator('option', { hasText: 'Consultor CCIH' }).getAttribute('value'))!);
+    const service = page.getByRole('combobox', { name: /^Serviço do contrato/ });
+    await service.selectOption((await service.locator('option', { hasText: 'Visita técnica à CCIH' }).first().getAttribute('value'))!);
+    await page.getByRole('button', { name: 'Agendar' }).click();
+    // Earlier runs may have left another activity at this time: accept the overlap on purpose.
+    const anyway = page.getByRole('checkbox', { name: /Agendar mesmo assim/ });
+    const heading = page.getByRole('heading', { name: new RegExp(title) });
+    await expect(heading.or(anyway)).toBeVisible();
+    if (await anyway.isVisible()) {
+      await anyway.check();
+      await page.getByRole('button', { name: 'Agendar' }).click();
+    }
+    await expect(heading).toBeVisible();
+    const url = page.url();
+    await page.getByRole('button', { name: 'Sair' }).click();
+
+    await login(page, 'consultor');
+    await page.goto(url);
+    await page.getByRole('button', { name: 'Registrar realização' }).click();
+    const form = page.locator('form', { has: page.getByRole('button', { name: 'Registrar realização' }) });
+    await form.getByLabel(/^Resumo do que foi feito/).fill('Revisão das notificações e do plano de ação (E2E)');
+    await form.getByRole('button', { name: 'Adicionar pendência' }).click();
+    await form.getByRole('textbox', { name: /^Pendência/ }).fill('Enviar a ata da visita (E2E)');
+    const owner = form.getByRole('combobox', { name: /^Responsável/ });
+    await owner.selectOption((await owner.locator('option', { hasText: 'Consultor CCIH' }).getAttribute('value'))!);
+    await form.getByRole('button', { name: 'Registrar realização' }).click();
+    await expect(page.getByRole('heading', { name: 'O que foi feito' })).toBeVisible();
+    await expect(page.getByText(/Registrada em CT-/)).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Pendências da atividade' })).toContainText('Enviar a ata da visita (E2E)');
+    // The delivery is in the contract, linked to the activity.
+    await page.getByText(/Registrada em CT-/).getByRole('link').click();
+    await expect(page.getByRole('table', { name: 'Entregas' })).toContainText(title);
   });
 });

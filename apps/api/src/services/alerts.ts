@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import {
-  ALERT_KIND_BLOCKING, ALERT_KIND_CATEGORY, IRAS_TYPES, addDays, bowieDickApplies, buildAlertCandidates, buildContractAlertCandidates, dateInZone, rulesFromParameters, surveillanceEnd, todayIn, zonedInstant,
-  type AlertCandidate, type AlertInput, type AlertKind, type ServicePeriod,
+  ALERT_KIND_BLOCKING, ALERT_KIND_CATEGORY, IRAS_TYPES, addDays, bowieDickApplies, buildAlertCandidates, buildAgendaAlertCandidates, buildContractAlertCandidates, dateInZone, rulesFromParameters, surveillanceEnd, todayIn, zonedInstant,
+  type ActivityKind, type AlertCandidate, type AlertInput, type AlertKind, type ServicePeriod,
 } from '@ccih/domain';
 import type { DB } from '../db/types';
 import { publish } from '../realtime/outbox';
@@ -23,7 +23,10 @@ export async function collectCandidates(db: Kysely<DB>, institutionId: string, n
   ]);
   const tz = inst.timezone;
   const today = todayIn(tz, now);
-  if (inst.organization_type === 'consultoria') return { candidates: await collectConsulting(db, institutionId, today), suppressHours: undefined };
+  if (inst.organization_type === 'consultoria') {
+    const [contracts, agenda] = await Promise.all([collectConsulting(db, institutionId, today), collectAgenda(db, institutionId, today, tz)]);
+    return { candidates: [...contracts, ...agenda], suppressHours: undefined };
+  }
   const rules = rulesFromParameters(params.map((p) => ({ key: p.key, value: p.value, referenceId: p.reference_id })));
   const label = (p: { initials: string; record_number: string }) => `${p.initials} · ${p.record_number}`;
 
@@ -115,6 +118,23 @@ async function collectConsulting(db: Kysely<DB>, institutionId: string, today: s
       return { id: l.id, contractId: l.contract_id, description: l.description, unit: l.unit, quantity: Number(l.quantity), period: l.period as ServicePeriod, startsOn: l.starts_on!, endsOn };
     }),
     deliveries: deliveries.map((d) => ({ serviceId: d.service_id, occurredOn: d.occurred_on, quantity: Number(d.quantity) })),
+  });
+}
+
+/** Consulting agenda: scheduled activities left without a record and open tasks past their due date. */
+async function collectAgenda(db: Kysely<DB>, institutionId: string, today: string, tz: string): Promise<AlertCandidate[]> {
+  const [activities, tasks] = await Promise.all([
+    db.selectFrom('consulting_activity as a').innerJoin('client as c', 'c.id', 'a.client_id').innerJoin('app_user as u', 'u.id', 'a.responsible_id')
+      .select(['a.id', 'a.title', 'a.kind', 'a.client_id', 'a.ends_at', 'c.legal_name', 'c.trade_name', 'u.display_name'])
+      .where('a.institution_id', '=', institutionId).where('a.status', '=', 'agendada').where('a.ends_at', '<', zonedInstant(today, 0, tz)).execute(),
+    db.selectFrom('consulting_task as t').innerJoin('client as c', 'c.id', 't.client_id').innerJoin('app_user as u', 'u.id', 't.owner_id')
+      .select(['t.id', 't.description', 't.client_id', 't.due_on', 't.activity_id', 'c.legal_name', 'c.trade_name', 'u.display_name'])
+      .where('t.institution_id', '=', institutionId).where('t.status', '=', 'aberta').where('t.due_on', '<', today).execute(),
+  ]);
+  return buildAgendaAlertCandidates({
+    today,
+    activities: activities.map((a) => ({ id: a.id, title: a.title, kind: a.kind as ActivityKind, clientId: a.client_id, clientName: a.trade_name ?? a.legal_name, endsOn: dateInZone(a.ends_at, tz), responsible: a.display_name })),
+    tasks: tasks.map((t) => ({ id: t.id, description: t.description, clientId: t.client_id, clientName: t.trade_name ?? t.legal_name, dueOn: t.due_on, owner: t.display_name, activityId: t.activity_id })),
   });
 }
 

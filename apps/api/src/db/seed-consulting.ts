@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Kysely } from 'kysely';
-import { DEFAULT_ROLE_PERMISSIONS, addDays, effectivePermissions, ROLE_LABEL, ROLE_MODULE, rolesOfModel, shiftMonths, todayIn, type RoleCode } from '@ccih/domain';
+import { DEFAULT_ROLE_PERMISSIONS, addDays, effectivePermissions, ROLE_LABEL, ROLE_MODULE, rolesOfModel, shiftMonths, todayIn, zonedInstant, type RoleCode } from '@ccih/domain';
 import { audit } from '../audit/audit';
 import { hashPassword } from '../security/crypto';
 import type { DB } from './types';
@@ -87,7 +87,31 @@ export async function seedDemoConsulting(db: Kysely<DB>, opts: { password?: stri
     await trx.insertInto('contract_service').values({
       institution_id: inst.id, contract_id: proposal.id, area: 'ccih', kind: 'diagnostico', description: 'Diagnóstico situacional da CCIH', establishment_id: null, unit: 'entregas', quantity: 1, period: 'contrato', starts_on: null, position: 0,
     }).execute();
-    await audit(trx, { institutionId: inst.id, userId: null, login: 'seed', ip: null, userAgent: null }, { action: 'seed', entity: 'institution', entityId: inst.id, context: { origin: 'demo', organizationType: 'consultoria', users: team.length, clients: clients.length, contracts: 2 } });
+    // Synthetic agenda: a visit done last week (delivery of the contracted visits and a follow-up task) and one scheduled.
+    const tz = 'America/Sao_Paulo';
+    const seedActor = { actor_id: null, actor_name: 'Carga de demonstração' };
+    const lastWeek = addDays(today, -7);
+    const done = await trx.insertInto('consulting_activity').values({
+      institution_id: inst.id, client_id: clientIds[0]!, establishment_id: null, contract_service_id: visits.id, kind: 'visita_tecnica', mode: 'presencial', title: 'Visita técnica à CCIH (demonstração)',
+      description: null, starts_at: zonedInstant(lastWeek, 9, tz), ends_at: zonedInstant(lastWeek, 12, tz), location: 'Hospital Exemplo Norte', responsible_id: ids.get('consultor')!,
+      created_by: ids.get('gestor.consultoria')!, created_by_name: 'Carga de demonstração', data_origin: 'demo',
+    }).returning('id').executeTakeFirstOrThrow();
+    await trx.updateTable('consulting_activity').set({ status: 'realizada', outcome_summary: 'Visita de acompanhamento da CCIH (registro sintético).', actual_minutes: 180, recorded_by_name: 'Carga de demonstração', recorded_at: zonedInstant(lastWeek, 13, tz) }).where('id', '=', done.id).execute();
+    await trx.insertInto('contract_delivery').values({ institution_id: inst.id, service_id: visits.id, occurred_on: lastWeek, quantity: 1, description: 'Visita técnica (demonstração)', created_by: ids.get('consultor')!, created_by_name: 'Carga de demonstração', activity_id: done.id }).execute();
+    await trx.insertInto('consulting_task').values({ institution_id: inst.id, client_id: clientIds[0]!, activity_id: done.id, description: 'Enviar o relatório da visita (demonstração)', owner_id: ids.get('consultor')!, due_on: addDays(today, 5), created_by: null, created_by_name: 'Carga de demonstração' }).execute();
+    await trx.insertInto('consulting_activity_event').values([
+      { institution_id: inst.id, activity_id: done.id, kind: 'agendada', summary: 'Visita técnica agendada (carga de demonstração).', detail: null, ...seedActor },
+      { institution_id: inst.id, activity_id: done.id, kind: 'realizada', summary: 'Visita técnica realizada (entrega registrada no contrato).', detail: null, ...seedActor },
+    ]).execute();
+    const next = addDays(today, 3);
+    const scheduled = await trx.insertInto('consulting_activity').values({
+      institution_id: inst.id, client_id: clientIds[0]!, establishment_id: null, contract_service_id: visits.id, kind: 'visita_tecnica', mode: 'presencial', title: 'Visita técnica à CME (demonstração)',
+      description: null, starts_at: zonedInstant(next, 14, tz), ends_at: zonedInstant(next, 16, tz), location: 'Hospital Exemplo Norte', responsible_id: ids.get('consultor')!,
+      created_by: ids.get('gestor.consultoria')!, created_by_name: 'Carga de demonstração', data_origin: 'demo',
+    }).returning('id').executeTakeFirstOrThrow();
+    await trx.insertInto('consulting_activity_participant').values({ activity_id: scheduled.id, user_id: ids.get('gestor.consultoria')!, institution_id: inst.id }).execute();
+    await trx.insertInto('consulting_activity_event').values({ institution_id: inst.id, activity_id: scheduled.id, kind: 'agendada', summary: 'Visita técnica agendada (carga de demonstração).', detail: null, ...seedActor }).execute();
+    await audit(trx, { institutionId: inst.id, userId: null, login: 'seed', ip: null, userAgent: null }, { action: 'seed', entity: 'institution', entityId: inst.id, context: { origin: 'demo', organizationType: 'consultoria', users: team.length, clients: clients.length, contracts: 2, activities: 2 } });
     return { institutionId: inst.id, credentials };
   });
 }

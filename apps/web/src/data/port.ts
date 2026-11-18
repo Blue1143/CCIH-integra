@@ -5,7 +5,7 @@ import type {
   QualityAuditDetail, QualityAuditDto, StaffMember, SupplyDto, SupplyMovementDto, SurveillanceRow, TrainingCoveragePayload, TrainingDto, TrainingSessionDto,
   AttachmentDto, AttachmentPolicyDto, CmeOverview, CmeTestDto, EquipmentStatus, IbControl, InstrumentSetDto, LoadDetail, LoadStatus, LoadSummary, PackagingType, RecordedTestType,
   SterilizerDto, SterilizerType, TestResult, TraceResult,
-  OrganizationType, AssignmentRole, AmendmentInput, ContractDetailDto, ContractInput, ContractStatus, ContractSummaryDto, FinancialInput, ClientDetailDto, ClientInput, ClientSummaryDto, ContactInput, EstablishmentInput, Specialty, TeamMemberDto, UnitInput, LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
+  OrganizationType, AssignmentRole, ActivityDetailDto, ActivityInput, ActivityOptionsDto, ActivitySummaryDto, OutcomeInput, TaskDto, TaskInput, AmendmentInput, ContractDetailDto, ContractInput, ContractStatus, ContractSummaryDto, FinancialInput, ClientDetailDto, ClientInput, ClientSummaryDto, ContactInput, EstablishmentInput, Specialty, TeamMemberDto, UnitInput, LabelEntity, LabelLayoutDto, LabelLayoutInput, LabelOutput, LabelPrintDto, LabelPrintKind, PrintedLabel,
   AssetDto, CmeSectorDto, UseRecorded, UserNotificationDto, RoleCode, UserAccessInput, UserAccountDto, UserHistoryEntry, FlowConfigDto, InputMethod, ProcessDetail, ProcessStep, ProcessSummaryDto, ScanConfig, ScanEventDto, ScanResponse, StationDto, Symbology,
 } from '@ccih/domain';
 
@@ -359,6 +359,17 @@ export interface ConsultingPort {
   addDelivery(serviceId: string, input: { occurredOn: string | null; quantity: number; description: string }): Promise<ContractDetailDto>;
   voidDelivery(id: string, reason: string): Promise<ContractDetailDto>;
   saveFinancial(id: string, input: FinancialInput & { rowVersion: number | null }): Promise<ContractDetailDto>;
+  activities(q: Query): Promise<Paged<ActivitySummaryDto>>;
+  activity(id: string): Promise<ActivityDetailDto>;
+  activityOptions(clientId: string): Promise<ActivityOptionsDto>;
+  /** New activity of a client (activityId null) or change of a scheduled one (reason required when it moves). */
+  saveActivity(clientId: string | null, activityId: string | null, input: ActivityInput & { allowOverlap: boolean; reason: string | null; rowVersion: number | null }): Promise<ActivityDetailDto>;
+  activityOutcome(id: string, input: OutcomeInput & { rowVersion: number }): Promise<ActivityDetailDto>;
+  addTask(activityId: string, input: TaskInput): Promise<ActivityDetailDto>;
+  tasks(q: Query): Promise<Paged<TaskDto>>;
+  closeTask(id: string, input: { status: 'concluida' | 'cancelada'; note: string; rowVersion: number }): Promise<TaskDto>;
+  /** Same-origin address of the iCalendar export (downloaded with the session cookie). */
+  agendaIcsUrl(q: { mine?: boolean }): string;
 }
 
 export interface RealtimeConfig { mode: 'sse' | 'polling'; pollSeconds: number }

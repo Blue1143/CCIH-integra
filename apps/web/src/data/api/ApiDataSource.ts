@@ -157,6 +157,15 @@ export class ApiDataSource implements CcihDataSource {
       addDelivery: (s, input) => http.send('POST', `/consulting/contract-services/${id(s)}/deliveries`, input),
       voidDelivery: (d, reason) => http.send('POST', `/consulting/contract-deliveries/${id(d)}/void`, { reason }),
       saveFinancial: (k, input) => http.send('PUT', `/consulting/contracts/${id(k)}/financial`, input),
+      activities: (q) => http.get('/consulting/activities', q),
+      activity: (a) => http.get(`/consulting/activities/${id(a)}`),
+      activityOptions: (c) => http.get(`/consulting/clients/${id(c)}/activity-options`),
+      saveActivity: (c, a, input) => (a ? http.send('PUT', `/consulting/activities/${id(a)}`, input) : http.send('POST', `/consulting/clients/${id(c!)}/activities`, input)),
+      activityOutcome: (a, input) => http.send('POST', `/consulting/activities/${id(a)}/outcome`, input),
+      addTask: (a, input) => http.send('POST', `/consulting/activities/${id(a)}/tasks`, input),
+      tasks: (q) => http.get('/consulting/tasks', q),
+      closeTask: (t, input) => http.send('POST', `/consulting/tasks/${id(t)}/close`, input),
+      agendaIcsUrl: (q) => `${base}/consulting/agenda.ics${q.mine ? '?mine=1' : ''}`,
     };
     this.inbox = {
       notifications: (q) => http.get(`/me/notifications?situacao=${q.situacao}`),
